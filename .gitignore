@@ -7,6 +7,8 @@
 *.cmx
 *.cmxs
 *.cmxa
+*.swp
+*.ll
 
 # ocamlbuild working directory
 _build/

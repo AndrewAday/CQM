@@ -111,12 +111,12 @@ let translate (globals, functions) =
     | A.Div     -> L.build_fdiv
     | A.And     -> L.build_and
     | A.Or      -> L.build_or
-    | A.Equal   -> L.build_fcmp L.Fcmp.Eq
-    | A.Neq     -> L.build_fcmp L.Fcmp.Ne
-    | A.Less    -> L.build_fcmp L.Fcmp.Slt
-    | A.Leq     -> L.build_fcmp L.Fcmp.Sle
-    | A.Greater -> L.build_fcmp L.Fcmp.Sgt
-    | A.Geq     -> L.build_fcmp L.Fcmp.Sge
+    | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
+    | A.Neq     -> L.build_fcmp L.Fcmp.One
+    | A.Less    -> L.build_fcmp L.Fcmp.Olt
+    | A.Leq     -> L.build_fcmp L.Fcmp.Ole
+    | A.Greater -> L.build_fcmp L.Fcmp.Ogt
+    | A.Geq     -> L.build_fcmp L.Fcmp.Oge
     in
 
     let rec expr builder = function
