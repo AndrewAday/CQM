@@ -32,7 +32,7 @@ rule token = parse
 | "**"     { POWER }
 | '='      { ASSIGN }
 | "=>"     { PIPE }
-| '^'      { MATTRANPOSE }
+| '^'      { MATTRANSPOSE }
 | ".."     { MATMUL }
 | ".*"     { MATDOTMUL }
 (* ------------Boolean/Other Operators------------ *)
