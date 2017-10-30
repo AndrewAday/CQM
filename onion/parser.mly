@@ -28,7 +28,7 @@ open Ast
 %left LT GT LEQ GEQ
 %left COLON
 %left PLUS MINUS
-%left TIMES DIVIDE MATMUL MATHADPROD
+%left TIMES DIVIDE MATMUL MATDOTMUL
 %left POWER
 %right NOT NEG
 %left MATTRANPOSE
@@ -51,11 +51,25 @@ section:
   LAYER COMPID LPAREN formals_opt RPAREN LBRACE layer_stmt_list RBRACE 
     { { name = $2;
         params = $4;
-        stmts = List.rev $7; } }
+        stmts = List.rev $7;
+        location = Local; } }
 | MODEL COMPID LPAREN model_formals_opt RPAREN LBRACE model_stmt_list RBRACE
     { { name = $2;
         params = $4;
-        stmts = List.rev $7; } }
+        stmts = List.rev $7;
+        location = Local; } }
+(*
+| EXTERNAL COMPID LPAREN model_formals_opt RPAREN LBRACE model_stmt_list RBRACE
+    { { name = $2;
+        params = $4;
+        stmts = [];
+        location = External; } }
+
+| EXTERNAL LAYER COMPID LPAREN formals_opt RPAREN LBRACE layer_stmt_list RBRACE 
+    { { name = $2;
+        params = $4;
+        stmts = [];
+        location = External; } } *)
 | RUN LPAREN RPAREN LBRACE run_stmt_list RBRACE
     { { name = "run";
         params = $3; 
@@ -126,7 +140,7 @@ expr:
 | expr MINUS  expr      { Binop($1, Sub,   $3) }
 | expr TIMES  expr      { Binop($1, Mult,  $3) }
 | expr DIVIDE expr      { Binop($1, Div,   $3) }
-| expr POWER  expr      { Binop($1, Power,   $3) }
+(*| expr POWER  expr      { Binop($1, Power,   $3) }*)
 | expr EQ     expr      { Binop($1, Equal, $3) }
 | expr NEQ    expr      { Binop($1, Neq,   $3) }
 | expr LT     expr      { Binop($1, Less,  $3) }
@@ -135,16 +149,18 @@ expr:
 | expr GEQ    expr      { Binop($1, Geq,   $3) }
 | expr AND    expr      { Binop($1, And,   $3) }
 | expr OR     expr      { Binop($1, Or,    $3) }
-| expr MATMUL expr      { Binop($1, Matmul, $3) }
+(*| expr MATMUL expr      { Binop($1, Matmul, $3) }
 | expr MATDOTMUL expr   { Binop($1, Matdotmul, $3) }
-| expr MATTRANPOSE      { Unop(Transpose, $1) }
+| expr MATTRANPOSE      { Unop(Transpose, $1) } *)
 | MINUS expr %prec NEG  { Unop(Neg, $2) }
 | NOT expr              { Unop(Not, $2) }
 | var ASSIGN expr       { Assign($1, $3) }
 | VARID ASSIGN expr     { Assign($1, $3) }
 | COMPID LPAREN actuals_opt RPAREN { Call($1, $3) }
 | LPAREN expr RPAREN    { $2 }
-(* CITE: MiniMat *)
+| MINUS expr %prec NEG                  { Unop(Neg, $2) }
+| NOT expr                              { Unop(Not, $2) }
+(* CITE: MiniMat
 | LBRACK rows SEMI RBRACK               { MatLit(List.rev $2) }
 | LBRACK actuals_opt RBRACK             { TupLit($2) }
 | VARID LBRACK expr COMMA expr RBRACK ASSIGN expr
@@ -153,9 +169,7 @@ expr:
 | VARID LBRACK expr RBRACK ASSIGN expr  { Tupassign(VarId($1),$3,$6) }
 | VARID LBRACK expr RBRACK              { Tupselect(VarId($1),$3) }
 | expr COLON expr COLON expr            { Stride($1,$3,$5) }
-| MINUS expr %prec NEG                  { Unop(Neg, $2) }
-| NOT expr                              { Unop(Not, $2) }
-| NEW typ LPAREN actuals_opt RPAREN     { Call(string_of_typ $2, $4)}
+| NEW typ LPAREN actuals_opt RPAREN     { Call(string_of_typ $2, $4)} *)
 
 (*------------------------------LISTS OF PARAMS-------------------------------*)
 model_formals_opt:
@@ -175,10 +189,10 @@ formal_list:
   var                   { [$1] }
 | formal_list COMMA var { $3 :: $1 }
 
-(* CITE: MiniMat *)
+(* CITE: MiniMat
 rows:
   actuals_opt           { [$1] }
-| rows SEMI actuals_opt { $3 :: $1 }
+| rows SEMI actuals_opt { $3 :: $1 } *)
 
 actuals_opt:
   /* nothing */ { [] }
@@ -198,8 +212,8 @@ typ:
     INT { Int }
   | BOOL { Bool }
   | VOID { Void }
-  | FLOAT { Float }
+(*| FLOAT { Float }
   | STRING { String }
   | FMATRIX { Fmatrix }
   | SMATRIX { Smatrx }
-  | IMATRIX { Imatrix }
+  | IMATRIX { Imatrix } *)
