@@ -1,0 +1,14 @@
+int sub(int a, int b)
+{
+  int c;
+  c = a - b;
+  return c;
+}
+
+int main()
+{
+  int d;
+  d = sub(10, 5);
+  print(d);
+  return 0;
+}

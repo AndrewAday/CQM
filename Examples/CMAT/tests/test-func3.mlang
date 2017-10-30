@@ -1,0 +1,12 @@
+void printfunc(int a, float b, string c)
+{
+  print(a);
+  printf(b);
+  prints(c);
+}
+
+int main()
+{
+  printfunc(2,4.0,"MathLang");
+  return 0;
+}

@@ -1,0 +1,13 @@
+void printints(int a, int b, int c, int d)
+{
+  print(a);
+  print(b);
+  print(c);
+  print(d);
+}
+
+int main()
+{
+  printints(2,4,6,8);
+  return 0;
+}

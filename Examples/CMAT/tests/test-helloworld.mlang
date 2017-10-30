@@ -1,0 +1,8 @@
+int main()
+{
+   print(1);
+   printb(true);
+   printf(1.0);
+   prints("Hello World!");
+   return 0;
+}

@@ -1,0 +1,16 @@
+int fun(int x, int y)
+{
+  return 0;
+}
+
+int main()
+{
+  int i;
+  i = 10;
+
+  fun(i = 20, i = i+1);
+
+  print(i);
+  return 0;
+}
+

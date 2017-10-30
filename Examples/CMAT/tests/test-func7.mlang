@@ -1,0 +1,13 @@
+void printstrings(string a, string b, string c, string d)
+{
+  prints(a);
+  prints(b);
+  prints(c);
+  prints(d);
+}
+
+int main()
+{
+  printstrings("Hello!","This","is","MathLang");
+  return 0;
+}
