@@ -161,8 +161,6 @@ expr:
 | VARID ASSIGN expr     { Assign($1, $3) }
 | COMPID LPAREN actuals_opt RPAREN { Call($1, $3) }
 | LPAREN expr RPAREN    { $2 }
-| MINUS expr %prec NEG  { Unop(Neg, $2) }
-| NOT expr              { Unop(Not, $2) }
 /* CITE: MiniMat
 | LBRACK rows SEMI RBRACK               { MatLit(List.rev $2) }
 | LBRACK actuals_opt RBRACK             { TupLit($2) }
