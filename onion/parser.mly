@@ -44,20 +44,24 @@ program:
   decls EOF { $1 }
 
 decls:
-  /* nothing */ { [], [] }
+  /* nothing */ { [] }
 | decls section { $2 :: $1 }
 
 /*---------------------------------SECTIONS-----------------------------------*/
 section:
-  LAYER COMPID LPAREN formals_opt RPAREN LBRACE layer_stmt_list RBRACE 
-    { { name = $2;
-        params = $4;
-        stmts = List.rev $7;
+  typ LAYER COMPID LPAREN formals_opt RPAREN LBRACE vdecl_list layer_stmt_list RBRACE 
+    { { typ = $1;
+        name = $3;
+        params = $5;
+        locals = List.rev $8;  
+        stmts = List.rev $9;
         location = Local; } }
-| MODEL COMPID LPAREN model_formals_opt RPAREN LBRACE model_stmt_list RBRACE
-    { { name = $2;
-        params = $4;
-        stmts = List.rev $7;
+| typ MODEL COMPID LPAREN model_formals_opt RPAREN LBRACE vdecl_list model_stmt_list RBRACE
+    { { typ = $1;
+        name = $3;
+        params = $5;
+        locals = List.rev $8;  
+        stmts = List.rev $9;
         location = Local; } }
 /*
 | EXTERNAL COMPID LPAREN model_formals_opt RPAREN LBRACE model_stmt_list RBRACE
@@ -71,10 +75,17 @@ section:
         params = $4;
         stmts = [];
         location = External; } } */
-| RUN LPAREN RPAREN LBRACE run_stmt_list RBRACE
-    { { name = "run";
+| typ RUN LPAREN RPAREN LBRACE vdecl_list run_stmt_list RBRACE
+    { { typ = $1;
+        name = "run";
         params = []; 
-        stmts = List.rev $5; } }
+        locals = List.rev $6;  
+        stmts = List.rev $7;
+        location = Local; } }
+
+vdecl_list:
+  /* nothing */ { [] }
+| vdecl_list vdecl SEMI { $2:: $1 }
 
 layer_stmt_list:
   /* nothing */               { [] }
@@ -123,6 +134,9 @@ gen_stmt:
 
 /*------------------------------EXPRESSIONS-----------------------------------*/
 
+vdecl:
+  typ VARID { ($1, $2) }
+
 model_expr:
   VARID         { VarId($1) }
 | COMPID LPAREN actuals_opt RPAREN { Call($1, $3) }
@@ -158,7 +172,6 @@ expr:
 | MINUS expr %prec NEG  { Unop(Neg, $2) }
 | NOT expr              { Unop(Not, $2) }
 | var ASSIGN expr       { Assign($1, $3) }
-| VARID ASSIGN expr     { Assign($1, $3) }
 | COMPID LPAREN actuals_opt RPAREN { Call($1, $3) }
 | LPAREN expr RPAREN    { $2 }
 /* CITE: MiniMat
@@ -183,17 +196,17 @@ formals_opt:
 
 model_formal_list:
   var                         { [$1] }
-| model_formal_list COMMA var { $3 :: $1 }
+| model_formal_list COMMA var { [$3] :: $1 }
 /*| BATCH var                 { [BatchVar($1)] }*/
 
 formal_list:
   var                   { [$1] }
-| formal_list COMMA var { $3 :: $1 }
+| formal_list COMMA var { [$3] :: $1 }
 
 /* CITE: MiniMat
 rows:
   actuals_opt           { [$1] }
-| rows SEMI actuals_opt { $3 :: $1 } */
+| rows SEMI actuals_opt { [$3] :: $1 } */
 
 actuals_opt:
   /* nothing */ { [] }
@@ -201,7 +214,7 @@ actuals_opt:
 
 actuals_list:
   expr                    { [$1] }
-| actuals_list COMMA expr { $3 :: $1 }
+| actuals_list COMMA expr { [$3] :: $1 }
 
 
 /*------------------------------BUILDING BLOCKS-------------------------------*/

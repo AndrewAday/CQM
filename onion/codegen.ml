@@ -30,7 +30,6 @@ let translate (globals, functions) =
       A.Int -> i32_t
     | A.Bool -> i1_t
     | A.Void -> void_t
-    | A.Float -> float_t
   in
 
   (* Declare each global variable; remember its value in a map *)
@@ -50,17 +49,17 @@ let translate (globals, functions) =
 
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
-    let function_decl m fdecl =
-      let name = fdecl.A.fname
+    let function_decl m section =
+      let name = section.A.name
       and formal_types =
-	Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
-      in let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
-      StringMap.add name (L.define_function name ftype the_module, fdecl) m in
+	Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) section.A.params)
+      in let ftype = L.function_type (ltype_of_typ section.A.typ) formal_types in
+      StringMap.add name (L.define_function name ftype the_module, section) m in
     List.fold_left function_decl StringMap.empty functions in
 
   (* Fill in the body of the given function *)
-  let build_function_body fdecl =
-    let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
+  let build_function_body section =
+    let (the_function, _) = StringMap.find section.A.name function_decls in
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
     let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
@@ -78,9 +77,9 @@ let translate (globals, functions) =
 	let local_var = L.build_alloca (ltype_of_typ t) n builder
 	in StringMap.add n local_var m in
 
-      let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
+      let formals = List.fold_left2 add_formal StringMap.empty section.A.params
           (Array.to_list (L.params the_function)) in
-      List.fold_left add_local formals fdecl.A.locals in
+      List.fold_left add_local formals section.A.locals in
 
     (* Return the value for a variable or formal argument *)
     let lookup n = try StringMap.find n local_vars
@@ -104,33 +103,14 @@ let translate (globals, functions) =
     | A.Geq     -> L.build_icmp L.Icmp.Sge
     in
 
-    let float_ops = function
-      A.Add     -> L.build_fadd
-    | A.Sub     -> L.build_fsub
-    | A.Mult    -> L.build_fmul
-    | A.Div     -> L.build_fdiv
-    | A.And     -> L.build_and
-    | A.Or      -> L.build_or
-    | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
-    | A.Neq     -> L.build_fcmp L.Fcmp.One
-    | A.Less    -> L.build_fcmp L.Fcmp.Olt
-    | A.Leq     -> L.build_fcmp L.Fcmp.Ole
-    | A.Greater -> L.build_fcmp L.Fcmp.Ogt
-    | A.Geq     -> L.build_fcmp L.Fcmp.Oge
-    in
-
     let rec expr builder = function
-      	A.Literal i -> L.const_int i32_t i
-      | A.FloatLit f -> L.const_float float_t f
+      	A.IntLit i -> L.const_int i32_t i
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup s) s builder
+      | A.VarId s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
     	  let e1' = expr builder e1
     	  and e2' = expr builder e2 in
-        (* TODO: need to build util function to get type of expression
-          The we can know to use float_ops or int_ops
-        *)
       	  (match op with
       	    A.Add     -> L.build_add
       	  | A.Sub     -> L.build_sub
@@ -177,7 +157,7 @@ let translate (globals, functions) =
     let rec stmt builder = function
 	A.Block sl -> List.fold_left stmt builder sl
       | A.Expr e -> ignore (expr builder e); builder
-      | A.Return e -> ignore (match fdecl.A.typ with
+      | A.Return e -> ignore (match section.A.typ with
 	  A.Void -> L.build_ret_void builder
 	| _ -> L.build_ret (expr builder e) builder); builder
       | A.If (predicate, then_stmt, else_stmt) ->
@@ -215,10 +195,10 @@ let translate (globals, functions) =
     in
 
     (* Build the code for each statement in the function *)
-    let builder = stmt builder (A.Block fdecl.A.body) in
+    let builder = stmt builder (A.Block section.A.stmts) in
 
     (* Add a return if the last block falls off the end *)
-    add_terminal builder (match fdecl.A.typ with
+    add_terminal builder (match section.A.typ with
         A.Void -> L.build_ret_void
       | t -> L.build_ret (L.const_int (ltype_of_typ t) 0))
   in

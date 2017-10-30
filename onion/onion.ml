@@ -6,7 +6,7 @@ module StringMap = Map.Make(String)
 type action = Ast | LLVM_IR | Compile
 
 let _ =
-  let action = ref Compile in
+  let action = ref Ast in (*ref Compile in*)
   let set_action a () = action := a in
   let speclist = [
     ("-a", Arg.Unit (set_action Ast), "Print the SAST");
@@ -19,10 +19,5 @@ let _ =
   Arg.parse speclist (fun filename -> channel := open_in filename) usage_msg;
   let lexbuf = Lexing.from_channel !channel in
   let ast = Parser.program Scanner.token lexbuf in
-  Semant.check ast;
-  match !action with
-    Ast -> print_string (Ast.string_of_program ast)
-  | LLVM_IR -> print_string (Llvm.string_of_llmodule (Codegen.translate ast))
-  | Compile -> let m = Codegen.translate ast in
-    Llvm_analysis.assert_valid_module m;
-    print_string (Llvm.string_of_llmodule m)
+  print_string (Ast.string_of_program ast)
+

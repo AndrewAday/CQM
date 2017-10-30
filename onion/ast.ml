@@ -28,10 +28,13 @@ type stmt =
   | Return of expr
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
+  | While of expr * stmt
 
 type section = {
+    typ: typ;
     name : string;
     params : bind list;
+    locals: bind list;
     stmts : stmt list;
     location : location;
   }
