@@ -20,21 +20,21 @@ rule token = parse
 | '*'      { TIMES }
 | '/'      { DIVIDE }
 | '='      { ASSIGN }
+| "=>"     { PIPE }
 | "**"     { POW }
 | '%'      { MOD }
 | '^'      { MATTRANS }
 | ".."     { MATMUL }
 | ".*"     { MATDOTMUL }
 | ':'      { SLICE }
-| "=>"     { PIPE }
 | "=="     { EQ }
 | "!="     { NEQ }
 | '<'      { LT }
 | "<="     { LEQ }
 | ">"      { GT }
 | ">="     { GEQ }
-| "and"    { AND }
-| "or"     { OR }
+| "&&"    { AND }
+| "||"     { OR }
 | "!"      { NOT }
 (*----------------------------------CONTROL-----------------------------------*)
 | "if"     { IF }
@@ -54,14 +54,15 @@ rule token = parse
 | "fmatrix"   { FMATRIX }
 | "smatrix"   { SMATRIX }
 | "tup"    { TUPLE }
+| "struct" { STRUCT }
 (*---------------------------------LITERALS-----------------------------------*)
 | "true"   { TRUE }
 | "false"  { FALSE }
 | ['0'-'9']+ as lxm                                       { INTLIT(int_of_string lxm) }
-| (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm
-                                                          { FLOATLIT(int_of_string lxm) }
-| '"' ((' '-'!' '#'-'[' ']'-'~')* as s) '"'               { STRINGLIT(s) }
+| (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm { FLOATLIT(float_of_string lxm) }
+| '"'(([' '-'!' '#'-'[' ']'-'~'])* as s)'"'               { STRINGLIT(s) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm  { ID(lxm) }
+| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*"*" as lxm  { PNTR(lxm) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

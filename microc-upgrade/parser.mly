@@ -4,12 +4,17 @@
 open Ast
 %}
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
-%token PLUS MINUS TIMES DIVIDE ASSIGN NOT
-%token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT BOOL VOID
-%token <int> LITERAL
+
+%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA
+%token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS MATMUL MATDOTMUL SLICE
+%token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
+%token RETURN IF ELSE FOR WHILE EXTERNAL NEW
+%token INT BOOL VOID FLOAT STRING IMATRIX SMATRIX FMATRIX TUPLE STRUCT
+%token <int> INTLIT
+%token <string> STRINGLIT
+%token <float> FLOATLIT
 %token <string> ID
+%token <string> PNTR
 %token EOF
 
 %nonassoc NOELSE
@@ -84,7 +89,7 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-    LITERAL          { Literal($1) }
+    INTLIT           { Literal($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
