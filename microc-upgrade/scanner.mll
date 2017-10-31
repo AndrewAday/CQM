@@ -5,38 +5,63 @@
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
 | "/*"     { comment lexbuf }           (* Comments *)
+(*-----------------------------------SYNTAX-----------------------------------*)
 | '('      { LPAREN }
 | ')'      { RPAREN }
 | '{'      { LBRACE }
 | '}'      { RBRACE }
+| '['      { LBRACK }
+| ']'      { RBRACK }
 | ';'      { SEMI }
 | ','      { COMMA }
+(*---------------------------------OPERATORS----------------------------------*)
 | '+'      { PLUS }
 | '-'      { MINUS }
 | '*'      { TIMES }
 | '/'      { DIVIDE }
 | '='      { ASSIGN }
+| "**"     { POW }
+| '%'      { MOD }
+| '^'      { MATTRANS }
+| ".."     { MATMUL }
+| ".*"     { MATDOTMUL }
+| ':'      { SLICE }
+| "=>"     { PIPE }
 | "=="     { EQ }
 | "!="     { NEQ }
 | '<'      { LT }
 | "<="     { LEQ }
 | ">"      { GT }
 | ">="     { GEQ }
-| "&&"     { AND }
-| "||"     { OR }
+| "and"    { AND }
+| "or"     { OR }
 | "!"      { NOT }
+(*----------------------------------CONTROL-----------------------------------*)
 | "if"     { IF }
 | "else"   { ELSE }
 | "for"    { FOR }
 | "while"  { WHILE }
 | "return" { RETURN }
+| "external" { EXTERNAL }
+| "new"    { NEW }
+(*-----------------------------------TYPES------------------------------------*)
 | "int"    { INT }
 | "bool"   { BOOL }
 | "void"   { VOID }
+| "float"   { FLOAT }
+| "string"   { STRING }
+| "imatrix"   { IMATRIX }
+| "fmatrix"   { FMATRIX }
+| "smatrix"   { SMATRIX }
+| "tup"    { TUPLE }
+(*---------------------------------LITERALS-----------------------------------*)
 | "true"   { TRUE }
 | "false"  { FALSE }
-| ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
+| ['0'-'9']+ as lxm                                       { INTLIT(int_of_string lxm) }
+| (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm
+                                                          { FLOATLIT(int_of_string lxm) }
+| '"' ((' '-'!' '#'-'[' ']'-'~')* as s) '"'               { STRINGLIT(s) }
+| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm  { ID(lxm) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 
