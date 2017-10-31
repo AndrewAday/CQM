@@ -1,29 +1,34 @@
-(* Code generation for MathLang *)
+(* Code generation: translate takes a semantically checked AST and
+produces LLVM IR
+
+LLVM tutorial: Make sure to read the OCaml version of the tutorial
+
+http://llvm.org/docs/tutorial/index.html
+
+Detailed documentation on the OCaml LLVM library:
+
+http://llvm.moe/
+http://llvm.moe/ocaml/
+
+*)
 
 module L = Llvm
 module A = Ast
 
 module StringMap = Map.Make(String)
 
-let context = L.global_context ()
-let the_module = L.create_module context "MathLang"
-
-let i32_t    = L.i32_type  context
-let i8_t     = L.i8_type   context
-let i1_t     = L.i1_type   context
-let double_t = L.double_type context
-let str_t    = L.pointer_type i8_t
-let void_t   = L.void_type context
-
 let translate (globals, functions) =
+  let context = L.global_context () in
+  let the_module = L.create_module context "MicroC"
+  and i32_t  = L.i32_type  context
+  and i8_t   = L.i8_type   context
+  and i1_t   = L.i1_type   context
+  and void_t = L.void_type context in
 
   let ltype_of_typ = function
       A.Int -> i32_t
     | A.Bool -> i1_t
-    | A.Float -> double_t
-    | A.Void -> void_t
-    | A.String -> str_t
-  in
+    | A.Void -> void_t in
 
   (* Declare each global variable; remember its value in a map *)
   let global_vars =
@@ -36,13 +41,17 @@ let translate (globals, functions) =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
+  (* Declare the built-in printbig() function *)
+  let printbig_t = L.function_type i32_t [| i32_t |] in
+  let printbig_func = L.declare_function "printbig" printbig_t the_module in
+
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
     let function_decl m fdecl =
       let name = fdecl.A.fname
       and formal_types =
 	Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
-      in let ftype = L.function_type (ltype_of_typ fdecl.A.ftyp) formal_types in
+      in let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty functions in
   
@@ -51,10 +60,8 @@ let translate (globals, functions) =
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
-    let int_format_str   = L.build_global_stringptr "%d\n" "fmt" builder in
-    let str_format_str   = L.build_global_stringptr "%s\n" "fmt" builder in
-    let float_format_str = L.build_global_stringptr "%f\n" "fmt" builder in
-
+    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
        value, if appropriate, and remember their values in the "locals" map *)
@@ -80,29 +87,26 @@ let translate (globals, functions) =
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
 	A.Literal i -> L.const_int i32_t i
-      | A.FloatLit f -> L.const_float double_t f
-      | A.StringLit str -> L.build_global_stringptr str "tmp" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
-	      let e1' = expr builder e1
-      	      and e2' = expr builder e2 in
-      	(match op with
-        | A.Add     -> L.build_add
-        | A.Sub     -> L.build_sub
-        | A.Mult    -> L.build_mul
-        | A.Div     -> L.build_sdiv
-        | A.And     -> L.build_and
-        | A.Or      -> L.build_or
-        | A.Equal   -> L.build_icmp L.Icmp.Eq
-        | A.Neq     -> L.build_icmp L.Icmp.Ne
-        | A.Less    -> L.build_icmp L.Icmp.Slt
-        | A.Leq     -> L.build_icmp L.Icmp.Sle
-        | A.Greater -> L.build_icmp L.Icmp.Sgt
-        | A.Geq     -> L.build_icmp L.Icmp.Sge
-      	) e1' e2' "tmp" builder
-
+	  let e1' = expr builder e1
+	  and e2' = expr builder e2 in
+	  (match op with
+	    A.Add     -> L.build_add
+	  | A.Sub     -> L.build_sub
+	  | A.Mult    -> L.build_mul
+          | A.Div     -> L.build_sdiv
+	  | A.And     -> L.build_and
+	  | A.Or      -> L.build_or
+	  | A.Equal   -> L.build_icmp L.Icmp.Eq
+	  | A.Neq     -> L.build_icmp L.Icmp.Ne
+	  | A.Less    -> L.build_icmp L.Icmp.Slt
+	  | A.Leq     -> L.build_icmp L.Icmp.Sle
+	  | A.Greater -> L.build_icmp L.Icmp.Sgt
+	  | A.Geq     -> L.build_icmp L.Icmp.Sge
+	  ) e1' e2' "tmp" builder
       | A.Unop(op, e) ->
 	  let e' = expr builder e in
 	  (match op with
@@ -110,22 +114,15 @@ let translate (globals, functions) =
           | A.Not     -> L.build_not) e' "tmp" builder
       | A.Assign (s, e) -> let e' = expr builder e in
 	                   ignore (L.build_store e' (lookup s) builder); e'
-      | A.Call ("print", [e])  ->
+      | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
 	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
-      | A.Call ("printb", [e]) ->
-	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
-            "printf" builder
-      | A.Call ("printf", [e] ) ->
-	  L.build_call printf_func [| float_format_str ; (expr builder e) |]
-            "printf" builder
-      | A.Call ("prints", [e]) -> 
-           L.build_call printf_func [| str_format_str; (expr builder e) |]
-            "printf" builder	
+      | A.Call ("printbig", [e]) ->
+	  L.build_call printbig_func [| (expr builder e) |] "printbig" builder
       | A.Call (f, act) ->
          let (fdef, fdecl) = StringMap.find f function_decls in
 	 let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-	 let result = (match fdecl.A.ftyp with A.Void -> ""
+	 let result = (match fdecl.A.typ with A.Void -> ""
                                             | _ -> f ^ "_result") in
          L.build_call fdef (Array.of_list actuals) result builder
     in
@@ -142,7 +139,7 @@ let translate (globals, functions) =
     let rec stmt builder = function
 	A.Block sl -> List.fold_left stmt builder sl
       | A.Expr e -> ignore (expr builder e); builder
-      | A.Return e -> ignore (match fdecl.A.ftyp with
+      | A.Return e -> ignore (match fdecl.A.typ with
 	  A.Void -> L.build_ret_void builder
 	| _ -> L.build_ret (expr builder e) builder); builder
       | A.If (predicate, then_stmt, else_stmt) ->
@@ -183,7 +180,7 @@ let translate (globals, functions) =
     let builder = stmt builder (A.Block fdecl.A.body) in
 
     (* Add a return if the last block falls off the end *)
-    add_terminal builder (match fdecl.A.ftyp with
+    add_terminal builder (match fdecl.A.typ with
         A.Void -> L.build_ret_void
       | t -> L.build_ret (L.const_int (ltype_of_typ t) 0))
   in

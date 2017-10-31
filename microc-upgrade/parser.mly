@@ -1,4 +1,4 @@
-/* Ocamlyacc parser for MathLang */
+/* Ocamlyacc parser for MicroC */
 
 %{
 open Ast
@@ -7,12 +7,9 @@ open Ast
 %token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN RETURNS IF ELSE FOR WHILE INT FLOAT BOOL VOID STRING
+%token RETURN IF ELSE FOR WHILE INT BOOL VOID
 %token <int> LITERAL
-%token <float> FLOATLIT
-%token <string> STRINGLIT
 %token <string> ID
-%token FUNCTION
 %token EOF
 
 %nonassoc NOELSE
@@ -35,45 +32,41 @@ program:
   decls EOF { $1 }
 
 decls:
-                        {[],[]}
-  | decls var_decl      {($2 :: fst $1), snd $1}
-  | decls fdecl         {fst $1, ($2 :: snd $1)}
-
-stmt_list:
-    stmt                { [$1] }
-  | stmt_list stmt      { $2 :: $1 }
-
-var_decl:
-  typ ID SEMI           { ($1, $2) }
-
-var_decl_list:
-                        {[]}
- | var_decl_list var_decl{$2 :: $1}
+   /* nothing */ { [], [] }
+ | decls vdecl { ($2 :: fst $1), snd $1 }
+ | decls fdecl { fst $1, ($2 :: snd $1) }
 
 fdecl:
-    typ ID LPAREN formals_opt RPAREN LBRACE var_decl_list stmt_list RBRACE
-     { { 
-	 ftyp = $1;
+   typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
+     { { typ = $1;
 	 fname = $2;
 	 formals = $4;
 	 locals = List.rev $7;
-	 body = List.rev $8
-    } }
+	 body = List.rev $8 } }
 
 formals_opt:
     /* nothing */ { [] }
   | formal_list   { List.rev $1 }
 
 formal_list:
-    typ ID                     { [($1, $2)] }
-  | formal_list COMMA typ ID { ($3, $4) :: $1 }
+    typ ID                   { [($1,$2)] }
+  | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
 typ:
     INT { Int }
-  | FLOAT { Float }
   | BOOL { Bool }
   | VOID { Void }
-  | STRING { String }
+
+vdecl_list:
+    /* nothing */    { [] }
+  | vdecl_list vdecl { $2 :: $1 }
+
+vdecl:
+   typ ID SEMI { ($1, $2) }
+
+stmt_list:
+    /* nothing */  { [] }
+  | stmt_list stmt { $2 :: $1 }
 
 stmt:
     expr SEMI { Expr $1 }
@@ -92,8 +85,6 @@ expr_opt:
 
 expr:
     LITERAL          { Literal($1) }
-  | FLOATLIT         { FloatLit($1) }
-  | STRINGLIT        { StringLit($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }

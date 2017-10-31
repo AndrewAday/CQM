@@ -1,4 +1,4 @@
-(* Semantic checking for the MathLang compiler *)
+(* Semantic checking for the MicroC compiler *)
 
 open Ast
 
@@ -31,52 +31,6 @@ let check (globals, functions) =
   let check_assign lvaluet rvaluet err =
      if lvaluet == rvaluet then lvaluet else raise err
   in
-
-  (* Perform binary operation semantic checks depending on the data type passed *)
-  let checkBinaryOp e1 op e2 err =
-     let getequal type1 type2 op =
-        if (type1 = Float || type2 = Float)
-          then raise (Failure ("illegal binary operator used for float types"))
-        else
-          match type1, type2 with
-            Int, Int -> Bool
-          | Bool, Bool -> Bool
-          | _  -> raise (Failure ("Invalid equality operator " ^ string_of_op op ^ "for types " ^ 
-				(string_of_typ type1) ^ " and " ^ (string_of_typ type2)))
-     in
-
-     let getlogic type1 type2 op =
-        match type1, type2 with
-          Bool, Bool -> Bool
-        | _          -> raise (Failure ("invalid type for logical operator " ^ 
-				string_of_op op ^ " for types " ^ (string_of_typ type1) ^ " and " ^ (string_of_typ type2)))
-     in
-
-     let getcomp type1 type2 op =
-        match type1, type2 with
-          Int, Int     -> Bool
-	| Float, Float -> Bool
-        | _            -> raise (Failure ("invalid type for comparison operator " ^ 
-				string_of_op op ^ " for types " ^ (string_of_typ type1) ^ " and " ^ (string_of_typ type2)))
-     in
-
-     let getarith type1 type2 op =
-        match type1, type2 with
-          Int, Float
-        | Float, Int
-        | Float, Float -> Float
-        | Int, Int     -> Int
-        | _            -> raise (Failure ("invalid type for arithmetic operator " ^ 
-				string_of_op op ^ " for types " ^ (string_of_typ type1) ^ " and " ^ (string_of_typ type2)))
-     in
-
-     match op with
-        Equal | Neq                  -> getequal e1 e2 op
-      | Less | Leq | Greater | Geq   -> getcomp e1 e2 op
-      | Add | Mult | Sub | Div       -> getarith e1 e2 op
-      | And | Or                     -> getlogic e1 e2 op
-      | _                            -> raise err   
-  in
    
   (**** Checking Global Variables ****)
 
@@ -93,20 +47,14 @@ let check (globals, functions) =
     (List.map (fun fd -> fd.fname) functions);
 
   (* Function declaration for a named function *)
-  let built_in_decls = StringMap.empty in
-
-  let built_in_decls = StringMap.add "print" 
-	{ ftyp = Void; fname = "print"; formals = [(Int, "x")]; 
-	locals = []; body = [] } built_in_decls in  
-  let built_in_decls = StringMap.add "printb" 
-	{ ftyp = Void; fname = "printb"; formals = [(Bool, "x")]; 
-	locals = []; body = [] } built_in_decls  in
-  let built_in_decls = StringMap.add "printf" 
-	{ ftyp = Void; fname = "printf"; formals = [(Float, "x")]; 
-	locals = []; body = [] } built_in_decls in
-  let built_in_decls = StringMap.add "prints" 
-	{ ftyp = Void; fname = "prints"; formals = [(String, "x")]; 
-	locals = []; body = [] } built_in_decls in
+  let built_in_decls =  StringMap.add "print"
+     { typ = Void; fname = "print"; formals = [(Int, "x")];
+       locals = []; body = [] } (StringMap.add "printb"
+     { typ = Void; fname = "printb"; formals = [(Bool, "x")];
+       locals = []; body = [] } (StringMap.singleton "printbig"
+     { typ = Void; fname = "printbig"; formals = [(Int, "x")];
+       locals = []; body = [] }))
+   in
      
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
                          built_in_decls functions
@@ -146,18 +94,20 @@ let check (globals, functions) =
     let rec expr = function
 	Literal _ -> Int
       | BoolLit _ -> Bool
-      | StringLit _ -> String 
-      | FloatLit _ -> Float
       | Id s -> type_of_identifier s
-      | Binop(e1, op, e2) as ex -> let t1 = expr e1 
-                                   and t2 = expr e2 in
-	  checkBinaryOp t1 op t2 (Failure ("illegal binary operator " ^
+      | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
+	(match op with
+          Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+	| Equal | Neq when t1 = t2 -> Bool
+	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
+	| And | Or when t1 = Bool && t2 = Bool -> Bool
+        | _ -> raise (Failure ("illegal binary operator " ^
               string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-              string_of_typ t2 ^ " in " ^ string_of_expr ex))
+              string_of_typ t2 ^ " in " ^ string_of_expr e))
+        )
       | Unop(op, e) as ex -> let t = expr e in
 	 (match op with
 	   Neg when t = Int -> Int
-         | Neg when t = Float -> Float
 	 | Not when t = Bool -> Bool
          | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
 	  		   string_of_typ t ^ " in " ^ string_of_expr ex)))
@@ -177,7 +127,7 @@ let check (globals, functions) =
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
                 " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
              fd.formals actuals;
-           fd.ftyp 
+           fd.typ
     in
 
     let check_bool_expr e = if expr e != Bool
@@ -194,9 +144,9 @@ let check (globals, functions) =
          | [] -> ()
         in check_block sl
       | Expr e -> ignore (expr e)
-      | Return e -> let t = expr e in if t = func.ftyp then () else
+      | Return e -> let t = expr e in if t = func.typ then () else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
-                         string_of_typ func.ftyp ^ " in " ^ string_of_expr e))
+                         string_of_typ func.typ ^ " in " ^ string_of_expr e))
            
       | If(p, b1, b2) -> check_bool_expr p; stmt b1; stmt b2
       | For(e1, e2, e3, st) -> ignore (expr e1); check_bool_expr e2;

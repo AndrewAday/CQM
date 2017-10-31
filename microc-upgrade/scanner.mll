@@ -30,18 +30,13 @@ rule token = parse
 | "for"    { FOR }
 | "while"  { WHILE }
 | "return" { RETURN }
-| "returns"{ RETURNS }
 | "int"    { INT }
-| "float"  { FLOAT }
 | "bool"   { BOOL }
 | "void"   { VOID }
-| "string"	{ STRING }
 | "true"   { TRUE }
 | "false"  { FALSE }
 | ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
-| ['0'-'9']*['.']['0'-'9']+ as lxm { FLOATLIT( float_of_string lxm) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
-| '"'('\\'_|[^'"'])*'"' as str { STRINGLIT(str) }
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 
