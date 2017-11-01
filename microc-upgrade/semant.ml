@@ -25,17 +25,17 @@ let check (globals, functions) =
       (Void, n) -> raise (Failure (exceptf n))
     | _ -> ()
   in
-  
+
   (* Raise an exception of the given rvalue type cannot be assigned to
      the given lvalue type *)
   let check_assign lvaluet rvaluet err =
      if lvaluet == rvaluet then lvaluet else raise err
   in
-   
+
   (**** Checking Global Variables ****)
 
   List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
-   
+
   report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals);
 
   (**** Checking Functions ****)
@@ -55,7 +55,7 @@ let check (globals, functions) =
      { typ = Void; fname = "printbig"; formals = [(Int, "x")];
        locals = []; body = [] }))
    in
-     
+
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
                          built_in_decls functions
   in
@@ -90,32 +90,55 @@ let check (globals, functions) =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
+    (* ========================= Binary Operators ========================= *)
+
+    let check_default_ops t1 t2 = function
+      Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+    | Equal | Neq when t1 = t2 -> Bool
+    | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
+    | And | Or when t1 = Bool && t2 = Bool -> Bool
+    | _ -> raise Not_found
+    in
+
+    let check_float_ops t1 t2 = function
+      Add | Sub | Mult | Div when t1 = Float && t2 = Float -> Float
+    | Equal | Neq when t1 = t2 -> Bool
+    | Less | Leq | Greater | Geq when t1 = Float && t2 = Float -> Bool
+    | _ -> raise Not_found
+    in
+
+    (* ==================================================================== *)
+
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
-	Literal _ -> Int
+	      IntLit _ -> Int
+      | FloatLit _ -> Float
       | BoolLit _ -> Bool
+      | Noexpr -> Void
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
-	(match op with
-          Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-	| Equal | Neq when t1 = t2 -> Bool
-	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-	| And | Or when t1 = Bool && t2 = Bool -> Bool
-        | _ -> raise (Failure ("illegal binary operator " ^
-              string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-              string_of_typ t2 ^ " in " ^ string_of_expr e))
-        )
+         let typ =
+           try
+             (match t1 with
+               _ when t1 = Float -> check_float_ops t1 t2 op
+             | _ -> check_default_ops t1 t2 op
+             )
+           with Not_found -> raise (Failure ("illegal binary operator " ^
+                                  string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                  string_of_typ t2 ^ " in " ^ string_of_expr e))
+         in typ
       | Unop(op, e) as ex -> let t = expr e in
-	 (match op with
-	   Neg when t = Int -> Int
-	 | Not when t = Bool -> Bool
+      	 (match op with
+      	   Neg when t = Int -> Int
+         | Neg when t = Float -> Float
+      	 | Not when t = Bool -> Bool
          | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-	  		   string_of_typ t ^ " in " ^ string_of_expr ex)))
-      | Noexpr -> Void
+      	  		                 string_of_typ t ^ " in " ^ string_of_expr ex))
+         )
       | Assign(var, e) as ex -> let lt = type_of_identifier var
                                 and rt = expr e in
         check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-				     " = " ^ string_of_typ rt ^ " in " ^ 
+				     " = " ^ string_of_typ rt ^ " in " ^
 				     string_of_expr ex))
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
@@ -147,7 +170,7 @@ let check (globals, functions) =
       | Return e -> let t = expr e in if t = func.typ then () else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
                          string_of_typ func.typ ^ " in " ^ string_of_expr e))
-           
+
       | If(p, b1, b2) -> check_bool_expr p; stmt b1; stmt b2
       | For(e1, e2, e3, st) -> ignore (expr e1); check_bool_expr e2;
                                ignore (expr e3); stmt st
@@ -155,6 +178,6 @@ let check (globals, functions) =
     in
 
     stmt (Block func.body)
-   
+
   in
   List.iter check_function functions

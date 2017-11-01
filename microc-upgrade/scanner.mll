@@ -42,7 +42,7 @@ rule token = parse
 | "for"    { FOR }
 | "while"  { WHILE }
 | "return" { RETURN }
-| "external" { EXTERNAL }
+| "extern" { EXTERN }
 | "new"    { NEW }
 (*-----------------------------------TYPES------------------------------------*)
 | "int"    { INT }

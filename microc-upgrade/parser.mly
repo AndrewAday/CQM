@@ -8,7 +8,7 @@ open Ast
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS MATMUL MATDOTMUL SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
-%token RETURN IF ELSE FOR WHILE EXTERNAL NEW
+%token RETURN IF ELSE FOR WHILE EXTERN NEW
 %token INT BOOL VOID FLOAT STRING IMATRIX SMATRIX FMATRIX TUPLE STRUCT
 %token <int> INTLIT
 %token <string> STRINGLIT
@@ -44,10 +44,10 @@ decls:
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
      { { typ = $1;
-	 fname = $2;
-	 formals = $4;
-	 locals = List.rev $7;
-	 body = List.rev $8 } }
+      	 fname = $2;
+      	 formals = $4;
+      	 locals = List.rev $7;
+      	 body = List.rev $8 } }
 
 formals_opt:
     /* nothing */ { [] }
@@ -59,6 +59,7 @@ formal_list:
 
 typ:
     INT { Int }
+  | FLOAT { Float }
   | BOOL { Bool }
   | VOID { Void }
 
@@ -89,7 +90,8 @@ expr_opt:
   | expr          { $1 }
 
 expr:
-    INTLIT           { Literal($1) }
+    INTLIT           { IntLit($1) }
+  | FLOATLIT         { FloatLit($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
