@@ -28,9 +28,12 @@ let translate (globals, functions) =
   and i1_t   = L.i1_type   context
   and void_t = L.void_type context in
 
+  let string_t = L.pointer_type i8_t in
+
   let ltype_of_typ = function
       A.Int -> i32_t
     | A.Float -> float_t
+    | A.String -> string_t
     | A.Bool -> i1_t
     | A.Void -> void_t in
   (* ========================================================= *)
@@ -133,6 +136,7 @@ let translate (globals, functions) =
     let rec expr builder = function
         A.IntLit i -> L.const_int i32_t i
       | A.FloatLit f -> L.const_float float_t f
+      | A.StringLit s -> L.build_global_stringptr s "str" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
