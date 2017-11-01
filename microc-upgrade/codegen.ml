@@ -64,7 +64,7 @@ let translate (globals, functions) =
         formal_types = Array.of_list
           (List.map(fun (t, _) -> ltype_of_typ t) fdecl.A.formals) in
       let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
-      StringMap.add name (L.define_function name ftype the_module, fdecl) m in
+      StringMap.add name (L.declare_function name ftype the_module, fdecl) m in
     List.fold_left extern_decl StringMap.empty extern_functions in
 
   let function_decls =  (* TODO: make a local_fn_decls and extern_fn_decls *)

@@ -8,6 +8,8 @@
  * an executable
  */
 
+extern void printbig(int c);
+
 int main()
 {
   printbig(72); /* H */
