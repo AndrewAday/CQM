@@ -49,11 +49,15 @@ let check (globals, functions) =
   (* Function declaration for a named function *)
   let built_in_decls =  StringMap.add "print"
      { typ = Void; fname = "print"; formals = [(Int, "x")];
+       locals = []; body = [] } (StringMap.add "printf"
+     { typ = Void; fname = "printf"; formals = [(Float, "x")];
+       locals = []; body = [] } (StringMap.add "prints"
+     { typ = Void; fname = "prints"; formals = [(String, "x")];
        locals = []; body = [] } (StringMap.add "printb"
      { typ = Void; fname = "printb"; formals = [(Bool, "x")];
        locals = []; body = [] } (StringMap.singleton "printbig"
      { typ = Void; fname = "printbig"; formals = [(Int, "x")];
-       locals = []; body = [] }))
+       locals = []; body = [] }))))
    in
 
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
@@ -107,6 +111,12 @@ let check (globals, functions) =
     | _ -> raise Not_found
     in
 
+    let check_string_ops t1 t2 = function
+      Add when t1 = String && t2 = String -> String
+    | Equal | Neq when t1 = t2 -> Bool
+    | _ -> raise Not_found
+    in
+
     (* ==================================================================== *)
 
     (* Return the type of an expression or throw an exception *)
@@ -114,6 +124,7 @@ let check (globals, functions) =
 	      IntLit _ -> Int
       | FloatLit _ -> Float
       | BoolLit _ -> Bool
+      | StringLit _ -> String
       | Noexpr -> Void
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
@@ -121,6 +132,7 @@ let check (globals, functions) =
            try
              (match t1 with
                _ when t1 = Float -> check_float_ops t1 t2 op
+             | _ when t1 = String -> check_string_ops t1 t2 op
              | _ -> check_default_ops t1 t2 op
              )
            with Not_found -> raise (Failure ("illegal binary operator " ^
