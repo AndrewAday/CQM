@@ -72,7 +72,7 @@ let translate (globals, functions) =
     (* return an instruction builder positioned at end of formal store/loads *)
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    (* let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in *)
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -136,7 +136,7 @@ let translate (globals, functions) =
     let rec expr builder = function
         A.IntLit i -> L.const_int i32_t i
       | A.FloatLit f -> L.const_float float_t f
-      | A.StringLit s -> L.build_global_stringptr s "str" builder
+      | A.StringLit s -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
@@ -165,17 +165,23 @@ let translate (globals, functions) =
       | A.Assign (s, e) ->
             let e' = expr builder e in
             ignore (L.build_store e' (lookup s) builder); e'
-      | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
+      (* | A.Call ("print", [e]) | A.Call ("printb", [e]) -> *)
+      | A.Call ("printf", act) ->
          (* TODO: make generic *)
+         (* TODO: add printb and print library fns *)
+         let actuals = List.map (expr builder) act in
   	     L.build_call
             printf_func
-            [| int_format_str ; (expr builder e) |]
+            (Array.of_list actuals)
             "printf"
             builder
       | A.Call ("printbig", [e]) ->
 	       L.build_call printbig_func [| (expr builder e) |] "printbig" builder
       | A.Call (f, act) ->
          let (fdef, fdecl) = StringMap.find f function_decls in
+         (* we double reverse here for historic reasons. should we undo?
+            Need to specify the order we eval fn arguments in LRM
+         *)
          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
          let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
          L.build_call fdef (Array.of_list actuals) result_name builder

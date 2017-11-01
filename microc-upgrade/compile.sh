@@ -15,7 +15,7 @@ Compile() {
   basename=`echo $1 | sed 's/.*\\///
                            s/.mc//'`
   echo ${basename}
-  Run "$MICROC" "$1" ">" "${basename}.ll" &&
+  Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
   Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
   Run "$CC" "-o" "${basename}.exe" "${basename}.s"
 }

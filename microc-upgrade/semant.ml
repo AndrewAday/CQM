@@ -40,25 +40,16 @@ let check (globals, functions) =
 
   (**** Checking Functions ****)
 
-  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
+  (* if List.mem "print" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure ("function print may not be defined")) else (); *)
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
 
   (* Function declaration for a named function *)
-  let built_in_decls =  StringMap.add "print"
-     { typ = Void; fname = "print"; formals = [(Int, "x")];
-       locals = []; body = [] } (StringMap.add "printf"
-     { typ = Void; fname = "printf"; formals = [(Float, "x")];
-       locals = []; body = [] } (StringMap.add "prints"
-     { typ = Void; fname = "prints"; formals = [(String, "x")];
-       locals = []; body = [] } (StringMap.add "printb"
-     { typ = Void; fname = "printb"; formals = [(Bool, "x")];
-       locals = []; body = [] } (StringMap.singleton "printbig"
-     { typ = Void; fname = "printbig"; formals = [(Int, "x")];
-       locals = []; body = [] }))))
-   in
+  let built_in_decls = StringMap.singleton "printbig"
+     { typ = Void; fname = "printbig"; formals = [(Int, "x")]; locals = []; body = [] }
+  in
 
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
                          built_in_decls functions
@@ -152,6 +143,7 @@ let check (globals, functions) =
         check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
 				     " = " ^ string_of_typ rt ^ " in " ^
 				     string_of_expr ex))
+      | Call("printf", _) -> Int
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
