@@ -114,6 +114,7 @@ let translate (globals, functions) =
     | A.Leq     -> L.build_icmp L.Icmp.Sle
     | A.Greater -> L.build_icmp L.Icmp.Sgt
     | A.Geq     -> L.build_icmp L.Icmp.Sge
+    | _         -> raise Not_found
     in
 
     let float_ops = function
@@ -148,6 +149,7 @@ let translate (globals, functions) =
          try
            (match l_typ with
              _ when l_typ = float_t -> float_ops op
+             (* TODO: Add matrix operations here *)
            | _ -> default_ops op
            )
          with Not_found -> raise (Failure ((A.string_of_op op) ^ " not defined for "
