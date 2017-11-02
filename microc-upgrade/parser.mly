@@ -47,7 +47,15 @@ fdecl:
       	 fname = $2;
       	 formals = $4;
       	 locals = List.rev $7;
-      	 body = List.rev $8 } }
+         body = List.rev $8;
+         location = Local; } }
+ | EXTERN typ ID LPAREN formals_opt RPAREN SEMI
+    { { typ = $2;
+        fname = $3;
+        formals = $5;
+        locals = [];
+        body = [];
+        location = External; } }
 
 formals_opt:
     /* nothing */ { [] }

@@ -49,22 +49,32 @@ let translate (globals, functions) =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
-  (* Declare the built-in printbig() function *)
-  let printbig_t = L.function_type i32_t [| i32_t |] in
-  let printbig_func = L.declare_function "printbig" printbig_t the_module in
-
   (*
   Define each function (arguments and return type) so we can call it
   Builds a map fname [string] -> ([llvalue], [Ast.func_decl])
   *)
+  let local_functions =
+    List.filter (fun fdecl -> fdecl.A.location = A.Local) functions
+  and extern_functions =
+    List.filter (fun fdecl -> fdecl.A.location = A.External) functions in
+
+  let extern_decls =
+    let extern_decl m fdecl =
+      let name = fdecl.A.fname and
+        formal_types = Array.of_list
+          (List.map(fun (t, _) -> ltype_of_typ t) fdecl.A.formals) in
+      let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
+      StringMap.add name (L.declare_function name ftype the_module, fdecl) m in
+    List.fold_left extern_decl StringMap.empty extern_functions in
+
   let function_decls =  (* TODO: make a local_fn_decls and extern_fn_decls *)
     let function_decl m fdecl =
       let name = fdecl.A.fname
-      and formal_types =
-	       Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
-      in let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
+      and formal_types = Array.of_list
+        (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals) in
+      let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
-    List.fold_left function_decl StringMap.empty functions in
+    List.fold_left function_decl StringMap.empty local_functions in
 
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
@@ -72,7 +82,7 @@ let translate (globals, functions) =
     (* return an instruction builder positioned at end of formal store/loads *)
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    (* let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in *)
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -137,7 +147,7 @@ let translate (globals, functions) =
     let rec expr builder = function
         A.IntLit i -> L.const_int i32_t i
       | A.FloatLit f -> L.const_float float_t f
-      | A.StringLit s -> L.build_global_stringptr s "str" builder
+      | A.StringLit s -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
@@ -167,20 +177,29 @@ let translate (globals, functions) =
       | A.Assign (s, e) ->
             let e' = expr builder e in
             ignore (L.build_store e' (lookup s) builder); e'
-      | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
+      (* | A.Call ("print", [e]) | A.Call ("printb", [e]) -> *)
+      | A.Call ("printf", act) ->
          (* TODO: make generic *)
+         (* TODO: add printb and print library fns *)
+         let actuals = List.map (expr builder) act in
   	     L.build_call
             printf_func
-            [| int_format_str ; (expr builder e) |]
+            (Array.of_list actuals)
             "printf"
             builder
-      | A.Call ("printbig", [e]) ->
-	       L.build_call printbig_func [| (expr builder e) |] "printbig" builder
       | A.Call (f, act) ->
-         let (fdef, fdecl) = StringMap.find f function_decls in
+         (* we double reverse here for historic reasons. should we undo?
+            Need to specify the order we eval fn arguments in LRM
+         *)
          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-         let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
-         L.build_call fdef (Array.of_list actuals) result_name builder
+         if (StringMap.mem f function_decls) then
+           let (fdef, fdecl) = StringMap.find f function_decls in
+           let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
+           L.build_call fdef (Array.of_list actuals) result_name builder
+         else
+           let (fdef, fdecl) = StringMap.find f extern_decls in
+           let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
+           L.build_call fdef (Array.of_list actuals) result_name builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
