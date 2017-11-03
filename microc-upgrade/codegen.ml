@@ -17,6 +17,8 @@ module A = Ast
 
 module StringMap = Map.Make(String)
 
+exception Bug of string;;
+
 let translate (globals, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "MicroC"
@@ -78,7 +80,7 @@ let translate (globals, functions) =
 
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
-    let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
+    let (the_function, _) = try StringMap.find fdecl.A.fname function_decls with Not_found -> raise (Bug "2") in
     (* return an instruction builder positioned at end of formal store/loads *)
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
@@ -185,11 +187,11 @@ let translate (globals, functions) =
       | A.Call (f, act) ->
          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
          if (StringMap.mem f function_decls) then
-           let (fdef, fdecl) = StringMap.find f function_decls in
+           let (fdef, fdecl) = try StringMap.find f function_decls with Not_found -> raise (Bug "1") in
            let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
            L.build_call fdef (Array.of_list actuals) result_name builder
          else 
-           let (fdef, fdecl) = StringMap.find f extern_decls in
+           let (fdef, fdecl) = try StringMap.find f extern_decls with  Not_found -> raise (Bug "1") in
            let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
            L.build_call fdef (Array.of_list actuals) result_name builder
     in
@@ -251,5 +253,5 @@ let translate (globals, functions) =
     )
   in
 
-  List.iter build_function_body functions;
+  List.iter build_function_body local_functions;
   the_module
