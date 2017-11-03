@@ -2,6 +2,9 @@
 
 { open Parser }
 
+let esc    = '\\' ['\\' ''' '"' 'n' 'r' 't']
+let ascii  = ([' '-'!' '#'-'[' ']'-'~'])
+
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
 | "/*"     { comment lexbuf }           (* Comments *)
@@ -60,7 +63,7 @@ rule token = parse
 | "false"  { FALSE }
 | ['0'-'9']+ as lxm                                       { INTLIT(int_of_string lxm) }
 | (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm { FLOATLIT(float_of_string lxm) }
-| '"'(([' '-'!' '#'-'[' ']'-'~'])* as s)'"'               { STRINGLIT(s) }
+| '"' ((ascii | esc)* as s)'"'               { STRINGLIT(s) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm  { ID(lxm) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*"*" as lxm  { PNTR(lxm) }
 | eof { EOF }
