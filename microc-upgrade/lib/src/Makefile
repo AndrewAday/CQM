@@ -5,8 +5,8 @@ INCLUDES = -I ../../eigen
 LDFLAGS = -L.
 LDLIBS = -leigentest
 
-CFLAGS = -g -Wall 
-CXXFLAGS = -g -Wall -fpic $(INCLUDES)
+CFLAGS = -g -Wall -O2
+CXXFLAGS = -g -Wall -fpic -O2 -march=native $(INCLUDES)
 
 COBJS = eigen_test_c.o
 
@@ -23,4 +23,12 @@ eigen_test.o: eigen_test.h
 
 .PHONY: clean
 clean:
-	rm -f *.o eigen_test
+	rm -f *.o eigen_test && rm -rf *.dSYM
+
+.PHONY: cleanlib
+cleanlib:
+	rm *.so
+
+.PHONY: memcheck
+memcheck:
+	valgrind --leak-check=full ./eigen_test
