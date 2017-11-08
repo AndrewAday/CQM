@@ -25,9 +25,12 @@ open Ast
 %left AND
 %left EQ NEQ
 %left LT GT LEQ GEQ
+%left SLICE
 %left PLUS MINUS
-%left TIMES DIVIDE
+%left TIMES DIVIDE MOD MATMUL MATDOTMUL
+%left POW
 %right NOT NEG
+%left MATTRANS
 
 %start program
 %type <Ast.program> program
