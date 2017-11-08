@@ -1,11 +1,12 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or
+          And | Or | Pow | Mod | Matmul | Matdotmul
 
-type uop = Neg | Not
+type uop = Neg | Not | Transpose
 
-type typ = Float | Int | Bool | Void | String
+type typ = Float | Int | Bool | Void | String | Tuple | Imatrix | Fmatrix |
+           Smatrix
 
 type location = Local | External
 
@@ -16,10 +17,18 @@ type expr =
   | FloatLit of float
   | StringLit of string
   | BoolLit of bool
+  | TupLit of expr list
+  | MatLit of expr list list
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Assign of string * expr
+  | Pipe of expr * expr
+  | Slice of expr * expr *expr
+  | Tupselect of expr * expr
+  | Tupassign of expr * expr * expr
+  | Matselect of expr * expr * expr
+  | Matassign of expr * expr * expr * expr
   | Call of string * expr list
   | Noexpr
 
@@ -49,6 +58,8 @@ let string_of_op = function
   | Sub -> "-"
   | Mult -> "*"
   | Div -> "/"
+  | Pow -> "**"
+  | Mod -> "%"
   | Equal -> "=="
   | Neq -> "!="
   | Less -> "<"
@@ -57,10 +68,13 @@ let string_of_op = function
   | Geq -> ">="
   | And -> "&&"
   | Or -> "||"
+  | Matmul -> ".."
+  | Matdotmul -> ".*"
 
 let string_of_uop = function
     Neg -> "-"
   | Not -> "!"
+  | Transpose -> "^"
 
 let rec string_of_expr = function
     IntLit(l) -> string_of_int l
@@ -73,6 +87,19 @@ let rec string_of_expr = function
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> string_of_uop o ^ string_of_expr e
   | Assign(v, e) -> v ^ " = " ^ string_of_expr e
+  | Pipe(v, e) -> v ^ " => " ^ string_of_expr e
+  | Slice(b, s, e) -> 
+      string_of_expr b ^ ":" ^ string_of_expr s ^ ":" ^ string_of_expr e
+  | Tupselect(v, e) -> string_of_expr v ^ "[" ^ string_of_expr e ^ "]"
+  | Tupassign(v, e, x) ->
+      string_of_expr v ^ "[" ^ string_of_expr e ^ "] = " ^ string_of_expr x
+  | Matselect(v, e1, e2) ->
+      string_of_expr v ^ "[" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ "]"
+  | Matassign(v, e1, e2, x) -> string_of_expr v ^ "[" ^ string_of_expr e1 ^
+      ", " ^ string_of_expr e2 ^ "] = " ^ string_of_expr x
+  | TupLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
+  | MatLit(el) -> "[" ^ String.concat "; " (List.map (fun e ->
+      String.concat ", " (List.map string_of_expr e)) el) ^ ";]"
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
@@ -96,6 +123,10 @@ let string_of_typ = function
   | Bool -> "bool"
   | Void -> "void"
   | String -> "string"
+  | Tuple -> "tuple"
+  | Imatrix -> "imatrix"
+  | Smatrix -> "smatrix"
+  | Fmatrix -> "fmatrix"
 
 let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
 

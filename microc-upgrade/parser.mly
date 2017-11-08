@@ -20,6 +20,7 @@ open Ast
 %nonassoc NOELSE
 %nonassoc ELSE
 %right ASSIGN
+%left PIPE
 %left OR
 %left AND
 %left EQ NEQ
@@ -71,6 +72,10 @@ typ:
   | STRING { String }
   | BOOL { Bool }
   | VOID { Void }
+  | IMATRIX { Imatrix }
+  | SMATRIX { Smatrix }
+  | FMATRIX { Fmatrix }
+  | TUPLE { Tuple }
 
 vdecl_list:
     /* nothing */    { [] }
@@ -109,6 +114,8 @@ expr:
   | expr MINUS  expr { Binop($1, Sub,   $3) }
   | expr TIMES  expr { Binop($1, Mult,  $3) }
   | expr DIVIDE expr { Binop($1, Div,   $3) }
+  | expr POW    expr { Binop($1, Pow,   $3) }
+  | expr MOD    expr { Binop($1, Mod,   $3) }
   | expr EQ     expr { Binop($1, Equal, $3) }
   | expr NEQ    expr { Binop($1, Neq,   $3) }
   | expr LT     expr { Binop($1, Less,  $3) }
@@ -117,9 +124,21 @@ expr:
   | expr GEQ    expr { Binop($1, Geq,   $3) }
   | expr AND    expr { Binop($1, And,   $3) }
   | expr OR     expr { Binop($1, Or,    $3) }
+  | expr MATMUL expr { Binop($1, Matmul, $3)}
+  | expr MATDOTMUL expr { Binop($1, Matdotmul, $3)}
+  | expr MATTRANS    { Unop(Transpose, $1) }
+  | LBRACK rows SEMI RBRACK                      { MatLit(List.rev $2) }
+  | LBRACK actuals_opt RBRACK                    { TupLit($2) }
+  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { Matassign(Id($1),$3,$5,$8)}
+  | ID LBRACK expr COMMA expr RBRACK             { Matselect(Id($1),$3,$5) }
+  | ID LBRACK expr RBRACK ASSIGN expr            { Tupassign(Id($1),$3,$6) }
+  | ID LBRACK expr RBRACK                        { Tupselect(Id($1),$3) }
+  | expr SLICE expr SLICE expr                   { Slice($1,$3,$5) }
   | MINUS expr %prec NEG { Unop(Neg, $2) }
   | NOT expr         { Unop(Not, $2) }
   | ID ASSIGN expr   { Assign($1, $3) }
+  | expr PIPE expr   { Pipe($1, $3) }
+  | NEW typ LPAREN actuals_opt RPAREN            { Call(string_of_typ $2, $4) }
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
   | LPAREN expr RPAREN { $2 }
 
@@ -130,3 +149,7 @@ actuals_opt:
 actuals_list:
     expr                    { [$1] }
   | actuals_list COMMA expr { $3 :: $1 }
+
+rows:
+    actuals_opt             { [$1] }
+  | rows SEMI actuals_opt   { $3 :: $1 }
