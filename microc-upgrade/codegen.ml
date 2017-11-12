@@ -24,20 +24,23 @@ let translate (globals, functions) =
   let the_module = L.create_module context "MicroC"
 
   (* ========================= Types ========================= *)
-  and float_t = L.double_type context
-  and i32_t  = L.i32_type  context
-  and i8_t   = L.i8_type   context
-  and i1_t   = L.i1_type   context
-  and void_t = L.void_type context in
+  and float_t   = L.double_type context
+  and i32_t     = L.i32_type  context
+  and i8_t      = L.i8_type   context
+  and i1_t      = L.i1_type   context
+  and void_t    = L.void_type context in
 
-  let string_t = L.pointer_type i8_t in
+  let string_t  = L.pointer_type i8_t
+  and fmatrix_t = L.pointer_type i32_t in
 
   let ltype_of_typ = function
-      A.Int -> i32_t
-    | A.Float -> float_t
-    | A.String -> string_t
-    | A.Bool -> i1_t
-    | A.Void -> void_t in
+      A.Int     -> i32_t
+    | A.Float   -> float_t
+    | A.String  -> string_t
+    | A.Bool    -> i1_t
+    | A.Void    -> void_t
+    | A.Fmatrix -> fmatrix_t
+    | A.Imatrix -> fmatrix_t in 
   (* ========================================================= *)
 
   (* Declare each global variable; remember its value in a map *)
@@ -69,7 +72,7 @@ let translate (globals, functions) =
       StringMap.add name (L.declare_function name ftype the_module, fdecl) m in
     List.fold_left extern_decl StringMap.empty extern_functions in
 
-  let function_decls =  (* TODO: make a local_fn_decls and extern_fn_decls *)
+  let function_decls =
     let function_decl m fdecl =
       let name = fdecl.A.fname
       and formal_types = Array.of_list
@@ -78,13 +81,18 @@ let translate (globals, functions) =
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty local_functions in
 
+  (* call an externally defined function by name and arguments *)
+  let build_external fname actuals the_builder = 
+    let (fdef, fdecl) = (try StringMap.find fname extern_decls with
+      Not_found -> raise(Failure("Not defined: " ^ fname ))) in
+    let result = (match fdecl.A.typ with A.Void -> "" | _ -> fname ^ "_res") in
+    L.build_call fdef actuals result the_builder in
+
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
     let (the_function, _) = try StringMap.find fdecl.A.fname function_decls with Not_found -> raise (Bug "2") in
     (* return an instruction builder positioned at end of formal store/loads *)
     let builder = L.builder_at_end context (L.entry_block the_function) in
-
-    (* let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in *)
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -113,7 +121,7 @@ let translate (globals, functions) =
 
     (* ========================= Binary Operators ========================= *)
 
-    let default_ops = function
+    let int_ops = function
       A.Add     -> L.build_add
     | A.Sub     -> L.build_sub
     | A.Mult    -> L.build_mul
@@ -140,30 +148,55 @@ let translate (globals, functions) =
     | A.Leq     -> L.build_fcmp L.Fcmp.Ule
     | A.Greater -> L.build_fcmp L.Fcmp.Ugt
     | A.Geq     -> L.build_fcmp L.Fcmp.Uge
-    | _ -> raise Not_found
+    | _         -> raise Not_found
     in
+
+    let matrix_matrix_ops = function
+      A.Add     -> build_external "mmadd"
+    | A.Sub     -> build_external "mmsub"
+    | A.Mult    -> build_external "mmmult"
+    | A.Div     -> build_external "mmdiv"
+    | A.Dot     -> build_external "dot"
+    | _         -> raise Not_found
+    in
+
+    let scalar_matrix_ops = function
+      A.Add     -> build_external "smadd"
+    | A.Sub     -> build_external "smsub"
+    | A.Mult    -> build_external "smmult"
+    | A.Div     -> build_external "smdiv"
+    | A.Equal   -> build_external "smeq"
+    | A.Neq     -> build_external "smneq"
+    | A.Less    -> build_external "smlt"
+    | A.Leq     -> build_external "smleq"
+    | A.Greater -> build_external "smgt"
+    | A.Geq     -> build_external "smgeq"
+    | _         -> raise Not_found
+    in
+
 
     (* ==================================================================== *)
 
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
-        A.IntLit i -> L.const_int i32_t i
-      | A.FloatLit f -> L.const_float float_t f
-      | A.StringLit s -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
-      | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-      | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup s) s builder
-      | A.Binop (e1, op, e2) ->
-	       let e1' = expr builder e1
-         and e2' = expr builder e2 in
-         let l_typ = L.type_of e1' in
-         let build_op =
-         try
-           (match l_typ with
-             _ when l_typ = float_t -> float_ops op
-             (* TODO: Add matrix operations here *)
-           | _ -> default_ops op
-           )
+        A.IntLit i            -> L.const_int i32_t i
+      | A.FloatLit f          -> L.const_float float_t f
+      | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
+      | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
+      | A.Noexpr              -> L.const_int i32_t 0
+      | A.Id s                -> L.build_load (lookup s) s builder
+      | A.Binop (e1, op, e2)  ->
+          let e1' = expr builder e1 and e2' = expr builder e2 in
+          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in 
+
+          let build_op =
+          match (l_typ1, l_typ2) with
+            (matrix_t, matrix_t) -> matrix_matrix_ops op
+          | (float_t, float_t) -> float_ops op
+          | (int_t, int_t) -> int_ops op
+          | ((float_t | int_t), matrix_t) -> scalar_matrix_ops op
+          | (matrix_t, (float_t | int_t)) -> scalar_matrix_ops op
+
          with Not_found -> raise (Failure ((A.string_of_op op) ^ " not defined for "
                                  ^ (L.string_of_lltype l_typ) ^ " in "
                                  ^ (A.string_of_expr e2)))

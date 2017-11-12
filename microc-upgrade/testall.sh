@@ -172,6 +172,13 @@ then
     exit 1
 fi
 
+if [ ! -f ./lib/src/libeigentest.so ]
+then
+    echo "Could not find eigen lib"
+    echo "Make sure libeigentest.so exists in ."
+    exit 1
+fi
+
 if [ $# -ge 1 ]
 then
     files=$@

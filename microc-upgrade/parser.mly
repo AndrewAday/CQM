@@ -9,7 +9,7 @@ open Ast
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS MATMUL MATDOTMUL SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
 %token RETURN IF ELSE FOR WHILE EXTERN NEW
-%token INT BOOL VOID FLOAT STRING IMATRIX SMATRIX FMATRIX TUPLE STRUCT
+%token INT BOOL VOID FLOAT STRING IMATRIX FMATRIX TUPLE STRUCT
 %token <int> INTLIT
 %token <string> STRINGLIT
 %token <float> FLOATLIT
@@ -47,19 +47,19 @@ decls:
 
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
-     { { typ = $1;
-      	 fname = $2;
-      	 formals = $4;
-      	 locals = List.rev $7;
-         body = List.rev $8;
-         location = Local; } }
+     { { typ         = $1;
+      	 fname       = $2;
+      	 formals     = $4;
+      	 locals      = List.rev $7;
+         body        = List.rev $8;
+         location    = Local; } }
  | EXTERN typ ID LPAREN formals_opt RPAREN SEMI
-    { { typ = $2;
-        fname = $3;
-        formals = $5;
-        locals = [];
-        body = [];
-        location = External; } }
+    { { typ         = $2;
+        fname       = $3;
+        formals     = $5;
+        locals      = [];
+        body        = [];
+        location    = External; } }
 
 formals_opt:
     /* nothing */ { [] }
@@ -70,15 +70,14 @@ formal_list:
   | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
 typ:
-    INT { Int }
-  | FLOAT { Float }
-  | STRING { String }
-  | BOOL { Bool }
-  | VOID { Void }
+    INT     { Int }
+  | FLOAT   { Float }
+  | STRING  { String }
+  | BOOL    { Bool }
+  | VOID    { Void }
   | IMATRIX { Imatrix }
-  | SMATRIX { Smatrix }
   | FMATRIX { Fmatrix }
-  | TUPLE { Tuple }
+  | TUPLE   { Tuple }
 
 vdecl_list:
     /* nothing */    { [] }
@@ -92,15 +91,16 @@ stmt_list:
   | stmt_list stmt { $2 :: $1 }
 
 stmt:
-    expr SEMI { Expr $1 }
-  | RETURN SEMI { Return Noexpr }
-  | RETURN expr SEMI { Return $2 }
-  | LBRACE stmt_list RBRACE { Block(List.rev $2) }
-  | IF LPAREN expr RPAREN stmt %prec NOELSE { If($3, $5, Block([])) }
-  | IF LPAREN expr RPAREN stmt ELSE stmt    { If($3, $5, $7) }
+    expr SEMI                                 { Expr $1 }
+  | RETURN SEMI                               { Return Noexpr }
+  | RETURN expr SEMI                          { Return $2 }
+  | LBRACE stmt_list RBRACE                   { Block(List.rev $2) }
+  | IF LPAREN expr RPAREN stmt %prec NOELSE   { If($3, $5, Block([])) }
+  | IF LPAREN expr RPAREN stmt ELSE stmt      { If($3, $5, $7) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
-     { For($3, $5, $7, $9) }
-  | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
+                                              { For($3, $5, $7, $9) }
+
+  | WHILE LPAREN expr RPAREN stmt             { While($3, $5) }
 
 expr_opt:
     /* nothing */ { Noexpr }
@@ -113,6 +113,7 @@ expr:
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
+
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
   | expr TIMES  expr { Binop($1, Mult,  $3) }
@@ -127,9 +128,10 @@ expr:
   | expr GEQ    expr { Binop($1, Geq,   $3) }
   | expr AND    expr { Binop($1, And,   $3) }
   | expr OR     expr { Binop($1, Or,    $3) }
-  | expr MATMUL expr { Binop($1, Matmul, $3)}
+
+  | expr MATMUL expr    { Binop($1, Matmul, $3)}
   | expr MATDOTMUL expr { Binop($1, Matdotmul, $3)}
-  | expr MATTRANS    { Unop(Transpose, $1) }
+  | expr MATTRANS       { Unop(Transpose, $1) }
   | LBRACK rows SEMI RBRACK                      { MatLit(List.rev $2) }
   | LBRACK actuals_opt RBRACK                    { TupLit($2) }
   | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { Matassign(Id($1),$3,$5,$8)}
@@ -137,13 +139,15 @@ expr:
   | ID LBRACK expr RBRACK ASSIGN expr            { Tupassign(Id($1),$3,$6) }
   | ID LBRACK expr RBRACK                        { Tupselect(Id($1),$3) }
   | expr SLICE expr SLICE expr                   { Slice($1,$3,$5) }
-  | MINUS expr %prec NEG { Unop(Neg, $2) }
-  | NOT expr         { Unop(Not, $2) }
-  | ID ASSIGN expr   { Assign($1, $3) }
-  | expr PIPE expr   { Pipe($1, $3) }
-  | NEW typ LPAREN actuals_opt RPAREN            { Call(string_of_typ $2, $4) }
-  | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
-  | LPAREN expr RPAREN { $2 }
+
+  | MINUS expr %prec NEG  { Unop(Neg, $2) }
+  | NOT expr              { Unop(Not, $2) }
+  | ID ASSIGN expr        { Assign($1, $3) }
+  | expr PIPE expr        { Pipe($1, $3) }
+
+  | NEW typ LPAREN actuals_opt RPAREN             { Call(string_of_typ $2, $4) }
+  | ID LPAREN actuals_opt RPAREN                  { Call($1, $3) }
+  | LPAREN expr RPAREN                            { $2 }
 
 actuals_opt:
     /* nothing */ { [] }

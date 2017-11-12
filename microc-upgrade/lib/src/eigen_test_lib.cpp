@@ -1,64 +1,106 @@
 #include "eigen_test.h"
 
+using namespace Eigen;
 
-Eigen::MatrixXd* mat_cast(matrix_t undef_mptr){
-	return static_cast<Eigen::MatrixXd*>(undef_mptr);
+void onion_matrix_test(){
+	MatrixXd tmp_m = MatrixXd::Constant(5, 5, 2.4);
+	std::cout << tmp_m << std::endl;
+}
+
+MatrixXd* mat_cast(matrix_t undef_mptr){
+	return static_cast<MatrixXd*>(undef_mptr);
 }
 
 void print_mat(matrix_t undef_mptr){
-	Eigen::MatrixXd* def_mptr = mat_cast(undef_mptr);
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
 	std::cout << *def_mptr << std::endl;
 }
 
 matrix_t init_fmat_zero(const int d1, const int d2){
-	Eigen::MatrixXd * tmp_mptr = new Eigen::MatrixXd;
-	*tmp_mptr = Eigen::MatrixXd::Zero(d1, d2);
+	MatrixXd * tmp_mptr = new MatrixXd;
+	*tmp_mptr = MatrixXd::Zero(d1, d2);
 	// std::cout << *tmp_mptr << std::endl;
 	return tmp_mptr;
 }
 
 matrix_t init_fmat_const(const double c, const int d1, const int d2){
-	Eigen::MatrixXd* tmp_mptr = new Eigen::MatrixXd;
-	*tmp_mptr = Eigen::MatrixXd::Constant(d1, d2, c);
+	MatrixXd* tmp_mptr = new MatrixXd;
+	*tmp_mptr = MatrixXd::Constant(d1, d2, c);
 	
  	return tmp_mptr;
 }
 
 matrix_t init_fmat_identity(const int d1, const int d2){
-	Eigen::MatrixXd* tmp_mptr = new Eigen::MatrixXd;
-	*tmp_mptr = Eigen::MatrixXd::Identity(d1, d2);
+	MatrixXd* tmp_mptr = new MatrixXd;
+	*tmp_mptr = MatrixXd::Identity(d1, d2);
 
 	return tmp_mptr;
 }
 
 void del_mat(matrix_t undef_mptr){
-	Eigen::MatrixXd * def_ptr = mat_cast(undef_mptr);
+	MatrixXd *  def_ptr = mat_cast(undef_mptr);
 	delete def_ptr;
 }
 
-matrix_t mmadd(matrix_t undef_mptr1, matrix_t undef_mptr2){
-	Eigen::MatrixXd* def_mptr1 = mat_cast(undef_mptr1);
-	Eigen::MatrixXd* def_mptr2 = mat_cast(undef_mptr2);
-	Eigen::MatrixXd* tmp_mptr = new Eigen::MatrixXd;
 
-	*tmp_mptr = *def_mptr1 + *def_mptr2;
+MatrixXd* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, double scalar, int op_id){
+	MatrixXd* def_mptr1 = mat_cast(undef_mptr1);
+	MatrixXd* def_mptr2 = mat_cast(undef_mptr2);
+	MatrixXd* tmp_mptr  = new MatrixXd;
+
+	switch(op_id) {
+
+		/* ===================== Matrix Matrix Operations ======================= */
+		// matrix-matrix addition
+		case 0: *tmp_mptr = *def_mptr1 + *def_mptr2; break;
+		// matrix-matrix subtraction
+		case 1: *tmp_mptr = *def_mptr1 - *def_mptr2; break;
+		// matrix-matrix multiplication
+		case 2: *tmp_mptr = (*def_mptr1).cwiseProduct(*def_mptr2); break;
+		// matrix-matrix division
+		case 3: *tmp_mptr = (*def_mptr1).cwiseQuotient(*def_mptr2); break;
+		// matrix-matrix dot product
+		case 4: *tmp_mptr = *def_mptr1 * *def_mptr2; break;
+
+		/* ===================== Sclar Matrix Operations ======================= */
+
+		case 5: *tmp_mptr = (*def_mptr1).array() + scalar; break;
+		case 6: *tmp_mptr = (*def_mptr1).array() - scalar; break;
+		case 7: *tmp_mptr = *def_mptr1 * scalar; break;
+		case 8: *tmp_mptr = *def_mptr1 / scalar; break;
+		// case 9: *tmp_mptr = (*def_mptr1).array() == scalar; break;
+	}	
+
 	return tmp_mptr;
+
 }
 
-matrix_t msub(matrix_t undef_mptr1, matrix_t undef_mptr2){
-	Eigen::MatrixXd* def_mptr1 = mat_cast(undef_mptr1);
-	Eigen::MatrixXd* def_mptr2 = mat_cast(undef_mptr2);
-	Eigen::MatrixXd* tmp_mptr = new Eigen::MatrixXd;
-
-	*tmp_mptr = *def_mptr1 - *def_mptr2;
-	return tmp_mptr;
+MatrixXd* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, int op_id){
+	return binary_operations(undef_mptr1, undef_mptr2, 0, op_id);
 }
 
-matrix_t dot(matrix_t undef_mptr1, matrix_t undef_mptr2){
-	Eigen::MatrixXd* def_mptr1 = mat_cast(undef_mptr1);
-	Eigen::MatrixXd* def_mptr2 = mat_cast(undef_mptr2);
-	Eigen::MatrixXd* tmp_mptr = new Eigen::MatrixXd;
+MatrixXd* binary_operations(matrix_t undef_mptr, double scalar, int op_id){
+	MatrixXd tmp_m;
+	MatrixXd* tmp_p = &tmp_m;
+	return binary_operations(undef_mptr, tmp_p, scalar, op_id);
+}
 
-	*tmp_mptr = *def_mptr1 * *def_mptr2;
+matrix_t mmadd(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 0); }
+matrix_t mmsub(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 1); }
+matrix_t mmmult(matrix_t undef_mptr1, matrix_t undef_mptr2) { return binary_operations(undef_mptr1, undef_mptr2, 2); }
+matrix_t mmdiv(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 3); }
+matrix_t dot(matrix_t undef_mptr1, matrix_t undef_mptr2)	{ return binary_operations(undef_mptr1, undef_mptr2, 4); } 
+
+matrix_t smadd(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 5); }
+matrix_t smsub(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 6); }
+matrix_t smmult(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 7); }
+matrix_t smdiv(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 8); }
+// matrix_t smeq(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, MatrixXd* tmp, s, 9); }
+
+matrix_t transpose(matrix_t undef_mptr){
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	MatrixXd* tmp_mptr = new MatrixXd;
+
+	*tmp_mptr = (*def_mptr).transpose();
 	return tmp_mptr;
 }
