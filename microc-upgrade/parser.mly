@@ -6,7 +6,7 @@ open Ast
 
 
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA
-%token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS MATMUL MATDOTMUL SLICE
+%token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS DOT SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
 %token RETURN IF ELSE FOR WHILE EXTERN NEW
 %token INT BOOL VOID FLOAT STRING IMATRIX FMATRIX TUPLE STRUCT
@@ -114,23 +114,22 @@ expr:
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
 
-  | expr PLUS   expr { Binop($1, Add,   $3) }
-  | expr MINUS  expr { Binop($1, Sub,   $3) }
-  | expr TIMES  expr { Binop($1, Mult,  $3) }
-  | expr DIVIDE expr { Binop($1, Div,   $3) }
-  | expr POW    expr { Binop($1, Pow,   $3) }
-  | expr MOD    expr { Binop($1, Mod,   $3) }
-  | expr EQ     expr { Binop($1, Equal, $3) }
-  | expr NEQ    expr { Binop($1, Neq,   $3) }
-  | expr LT     expr { Binop($1, Less,  $3) }
-  | expr LEQ    expr { Binop($1, Leq,   $3) }
+  | expr PLUS   expr { Binop($1, Add,     $3) }
+  | expr MINUS  expr { Binop($1, Sub,     $3) }
+  | expr TIMES  expr { Binop($1, Mult,    $3) }
+  | expr DIVIDE expr { Binop($1, Div,     $3) }
+  | expr POW    expr { Binop($1, Pow,     $3) }
+  | expr MOD    expr { Binop($1, Mod,     $3) }
+  | expr EQ     expr { Binop($1, Equal,   $3) }
+  | expr NEQ    expr { Binop($1, Neq,     $3) }
+  | expr LT     expr { Binop($1, Less,    $3) }
+  | expr LEQ    expr { Binop($1, Leq,     $3) }
   | expr GT     expr { Binop($1, Greater, $3) }
-  | expr GEQ    expr { Binop($1, Geq,   $3) }
-  | expr AND    expr { Binop($1, And,   $3) }
-  | expr OR     expr { Binop($1, Or,    $3) }
+  | expr GEQ    expr { Binop($1, Geq,     $3) }
+  | expr AND    expr { Binop($1, And,     $3) }
+  | expr OR     expr { Binop($1, Or,      $3) }
 
-  | expr MATMUL expr    { Binop($1, Matmul, $3)}
-  | expr MATDOTMUL expr { Binop($1, Matdotmul, $3)}
+  | expr MATDOTMUL expr { Binop($1, Dot, $3)}
   | expr MATTRANS       { Unop(Transpose, $1) }
   | LBRACK rows SEMI RBRACK                      { MatLit(List.rev $2) }
   | LBRACK actuals_opt RBRACK                    { TupLit($2) }

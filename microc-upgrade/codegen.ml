@@ -152,25 +152,25 @@ let translate (globals, functions) =
     in
 
     let matrix_matrix_ops = function
-      A.Add     -> build_external "mmadd"
-    | A.Sub     -> build_external "mmsub"
-    | A.Mult    -> build_external "mmmult"
-    | A.Div     -> build_external "mmdiv"
-    | A.Dot     -> build_external "dot"
+      A.Add     ->  "mmadd"
+    | A.Sub     ->  "mmsub"
+    | A.Mult    ->  "mmmult"
+    | A.Div     ->  "mmdiv"
+    | A.Dot     ->  "dot"
     | _         -> raise Not_found
     in
 
     let scalar_matrix_ops = function
-      A.Add     -> build_external "smadd"
-    | A.Sub     -> build_external "smsub"
-    | A.Mult    -> build_external "smmult"
-    | A.Div     -> build_external "smdiv"
-    | A.Equal   -> build_external "smeq"
-    | A.Neq     -> build_external "smneq"
-    | A.Less    -> build_external "smlt"
-    | A.Leq     -> build_external "smleq"
-    | A.Greater -> build_external "smgt"
-    | A.Geq     -> build_external "smgeq"
+      A.Add     ->  "smadd"
+    | A.Sub     ->  "smsub"
+    | A.Mult    ->  "smmult"
+    | A.Div     ->  "smdiv"
+    | A.Equal   ->  "smeq"
+    | A.Neq     ->  "smneq"
+    | A.Less    ->  "smlt"
+    | A.Leq     ->  "smleq"
+    | A.Greater ->  "smgt"
+    | A.Geq     ->  "smgeq"
     | _         -> raise Not_found
     in
 
@@ -187,28 +187,45 @@ let translate (globals, functions) =
       | A.Id s                -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2)  ->
           let e1' = expr builder e1 and e2' = expr builder e2 in
-          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in 
+          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
+          let l_typs = (l_typ1, l_typ2) in 
+          (
+          if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
+          else if l_typs = (float_t, float_t) then (float_ops e1' e2' "tmp" builder)
+          else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
+          else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
+                           (build_external (scalar_matrix_ops op) [|e2'; e1'|] builder)
+          else if l_typ2 = fmatrix_t && (l_typ1 = i32_t || l_typ1 = float_t) then
+                           (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
+          else raise (Failure ((A.string_of_op op) ^ " not defined for " ^
+                                 (L.string_of_lltype l_typ1) ^ " and " ^
+                                 (L.string_of_lltype l_typ2) ^ " in " ^
+                                 (A.string_of_expr e2)
+                               )
+                        )
+          )
+(*           match l_typs with
 
-          let build_op =
-          match (l_typ1, l_typ2) with
-            (matrix_t, matrix_t) -> matrix_matrix_ops op
-          | (float_t, float_t) -> float_ops op
-          | (int_t, int_t) -> int_ops op
-          | ((float_t | int_t), matrix_t) -> scalar_matrix_ops op
-          | (matrix_t, (float_t | int_t)) -> scalar_matrix_ops op
+          | _ when l_typs = (fmatrix_t, fmatrix_t)          -> float_ops e1' e2' "tmp" builder
+          | _ when l_typs = (int_t, int_t)                  -> int_ops op e1' e2' "tmp" builder
+          | _ when l_typs = ((float_t | int_t), fmatrix_t)  -> build_external (scalar_matrix_ops op) [| e1' ; e2'|] builder
+          | _ when l_typs = (fmatrix_t, (float_t | int_t))  -> build_external (scalar_matrix_ops op) [| e2' ; e1'|] builder
+          | _ -> raise (Failure ((A.string_of_op op) ^ " not defined for " ^
+                                 (L.string_of_lltype l_typ1) ^ " and " ^
+                                 (L.string_of_lltype l_typ2) ^ " in " ^
+                                 (A.string_of_expr e2)
+                               )
+                        )
+ *)
 
-         with Not_found -> raise (Failure ((A.string_of_op op) ^ " not defined for "
-                                 ^ (L.string_of_lltype l_typ) ^ " in "
-                                 ^ (A.string_of_expr e2)))
-         in
-         build_op e1' e2' "tmp" builder
       | A.Unop(op, e) ->
 	       let e' = expr builder e in
          let l_typ = L.type_of e' in
-         (match op with
+         (match l_typ with
 	          A.Neg     -> if l_typ = float_t then L.build_fneg else L.build_neg
           | A.Not     -> L.build_not
          ) e' "tmp" builder
+      
       | A.Assign (s, e) ->
             let e' = expr builder e in
             ignore (L.build_store e' (lookup s) builder); e'

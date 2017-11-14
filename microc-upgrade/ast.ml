@@ -68,7 +68,6 @@ let string_of_op = function
   | And       -> "&&"
   | Or        -> "||"
   | Dot       -> ".."
-  | Matdotmul -> ".*"
 
 let string_of_uop = function
     Neg       -> "-"
