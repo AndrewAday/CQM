@@ -1,4 +1,4 @@
-/* Ocamlyacc parser for MicroC */
+/* Ocamlyacc parser for Onion */
 
 %{
 open Ast
@@ -27,7 +27,7 @@ open Ast
 %left LT GT LEQ GEQ
 %left SLICE
 %left PLUS MINUS
-%left TIMES DIVIDE MOD MATMUL MATDOTMUL
+%left TIMES DIVIDE MOD MATMUL
 %left POW
 %right NOT NEG
 %left MATTRANS
@@ -129,7 +129,7 @@ expr:
   | expr AND    expr { Binop($1, And,     $3) }
   | expr OR     expr { Binop($1, Or,      $3) }
 
-  | expr MATDOTMUL expr { Binop($1, Dot, $3)}
+  | expr DOT expr { Binop($1, Dot, $3)}
   | expr MATTRANS       { Unop(Transpose, $1) }
   | LBRACK rows SEMI RBRACK                      { MatLit(List.rev $2) }
   | LBRACK actuals_opt RBRACK                    { TupLit($2) }

@@ -95,7 +95,7 @@ Check() {
     generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
     Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
-    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-Llib/src" "-leigentest" &&
+    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-L lib/src" "-leigentest" &&
     Run "./${basename}.exe" > "${basename}.out" &&
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 
@@ -173,12 +173,12 @@ then
     exit 1
 fi
 
-if [ ! -f ./lib/src/libeigentest.so ]
-then
-    echo "Could not find eigen lib"
-    echo "Make sure libeigentest.so exists in ."
-    exit 1
-fi
+# if [ ! -f ./lib/src/libeigentest.so ]
+# then
+#     echo "Could not find eigen lib"
+#     echo "Make sure libeigentest.so exists in ."
+#     exit 1
+# fi
 
 if [ $# -ge 1 ]
 then
