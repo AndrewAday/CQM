@@ -20,6 +20,7 @@ CC="cc"
 MICROC="./microc.native"
 #MICROC="_build/microc.native"
 
+
 # Set time limit for all operations
 ulimit -t 30
 
@@ -94,7 +95,7 @@ Check() {
     generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
     Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
-    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" &&
+    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-Llib/src" "-leigentest" &&
     Run "./${basename}.exe" > "${basename}.out" &&
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 

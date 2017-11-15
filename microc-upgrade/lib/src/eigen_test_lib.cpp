@@ -19,7 +19,17 @@ void print_mat(matrix_t undef_mptr){
 	std::cout << *def_mptr << std::endl;
 }
 
-/* ========================= Matrix Inititialization =========================== */
+int rows(matrix_t undef_mptr){
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	return (*def_mptr).rows();
+}
+
+int cols(matrix_t undef_mptr){
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	return (*def_mptr).cols();
+}
+
+/* ============================= Matrix Inititialization =============================== */
 
 MatrixXd* init_fmat(const int d1, const int d2, const double c, const int op_id){
 	MatrixXd* tmp_mptr = new MatrixXd;
@@ -32,9 +42,16 @@ MatrixXd* init_fmat(const int d1, const int d2, const double c, const int op_id)
 	return tmp_mptr;
 }
 
-matrix_t init_fmat_zero(const int d1, const int d2)						{return init_fmat(d1, d2, 0, 0);}
+matrix_t init_fmat_zero(const int d1, const int d2)						{return init_fmat(d1, d2, -1, 0);}
 matrix_t init_fmat_const(const double c, const int d1, const int d2)	{return init_fmat(d1, d2, c, 1);}
-matrix_t init_fmat_identity(const int d1, const int d2)					{return init_fmat(d1, d2, 0, 2);}
+matrix_t init_fmat_identity(const int d1, const int d2)					{return init_fmat(d1, d2, -1, 2);}
+
+matrix_t copy(matrix_t undef_mptr){
+	MatrixXd* tmp_mptr = new MatrixXd;
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	*tmp_mptr = *def_mptr;
+	return tmp_mptr;
+}
 
 void del_mat(matrix_t undef_mptr){
 	MatrixXd *  def_ptr = mat_cast(undef_mptr);
@@ -42,7 +59,7 @@ void del_mat(matrix_t undef_mptr){
 }
 
 
-/* ========================= Matrix Operations =========================== */
+/* ============================= Matrix Binary Operations =============================== */
 
 MatrixXd* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, double scalar, int op_id){
 	MatrixXd* def_mptr1 = mat_cast(undef_mptr1);
@@ -65,9 +82,13 @@ MatrixXd* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, double s
 
 		/* ======================== Scalar Matrix Operations ========================= */
 
+		// scalar matrix addition
 		case 5: *tmp_mptr = (*def_mptr1).array() + scalar; break;
+		// scalar matrix subtraction
 		case 6: *tmp_mptr = (*def_mptr1).array() - scalar; break;
+		// scalar matrix multiplication
 		case 7: *tmp_mptr = *def_mptr1 * scalar; break;
+		// sclar matrix division
 		case 8: *tmp_mptr = *def_mptr1 / scalar; break;
 		// case 9: *tmp_mptr = (*def_mptr1).array() == scalar; break;
 	}	
@@ -96,6 +117,8 @@ matrix_t smmult(double s, matrix_t undef_mptr)	{ return binary_operations(undef_
 matrix_t smdiv(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 8); }
 // matrix_t smeq(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, MatrixXd* tmp, s, 9); }
 
+/* ============================= Matrix Unary Operations Operations =============================== */
+
 matrix_t transpose(matrix_t undef_mptr){
 	MatrixXd* def_mptr = mat_cast(undef_mptr);
 	MatrixXd* tmp_mptr = new MatrixXd;
@@ -103,3 +126,8 @@ matrix_t transpose(matrix_t undef_mptr){
 	*tmp_mptr = (*def_mptr).transpose();
 	return tmp_mptr;
 }
+
+matrix_t negate(matrix_t undef_mptr){
+	return smmult(-1, undef_mptr);
+}
+

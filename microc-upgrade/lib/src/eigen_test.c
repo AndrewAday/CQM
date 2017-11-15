@@ -9,7 +9,7 @@ int main(){
 	matrix_t tmp5 = dot(tmp2, tmp3);
 
 	print_mat(tmp);
-	print_mat(tmp2);
+	print_mat(smmult(-1, tmp2));
 	print_mat(tmp3);
 	print_mat(tmp4);
 	print_mat(tmp5);

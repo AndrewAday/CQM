@@ -190,19 +190,19 @@ let translate (globals, functions) =
           let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
           let l_typs = (l_typ1, l_typ2) in 
           (
-          if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
-          else if l_typs = (float_t, float_t) then (float_ops e1' e2' "tmp" builder)
-          else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
-          else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
-                           (build_external (scalar_matrix_ops op) [|e2'; e1'|] builder)
-          else if l_typ2 = fmatrix_t && (l_typ1 = i32_t || l_typ1 = float_t) then
-                           (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
-          else raise (Failure ((A.string_of_op op) ^ " not defined for " ^
-                                 (L.string_of_lltype l_typ1) ^ " and " ^
-                                 (L.string_of_lltype l_typ2) ^ " in " ^
-                                 (A.string_of_expr e2)
-                               )
-                        )
+            if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
+            else if l_typs = (float_t, float_t) then (float_ops op e1' e2' "tmp" builder)
+            else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
+            else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
+                             (build_external (scalar_matrix_ops op) [|e2'; e1'|] builder)
+            else if l_typ2 = fmatrix_t && (l_typ1 = i32_t || l_typ1 = float_t) then
+                             (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
+            else raise (Failure ((A.string_of_op op) ^ " not defined for " ^
+                                   (L.string_of_lltype l_typ1) ^ " and " ^
+                                   (L.string_of_lltype l_typ2) ^ " in " ^
+                                   (A.string_of_expr e2)
+                                 )
+                          )
           )
 (*           match l_typs with
 
@@ -221,10 +221,14 @@ let translate (globals, functions) =
       | A.Unop(op, e) ->
 	       let e' = expr builder e in
          let l_typ = L.type_of e' in
-         (match l_typ with
-	          A.Neg     -> if l_typ = float_t then L.build_fneg else L.build_neg
-          | A.Not     -> L.build_not
-         ) e' "tmp" builder
+          (match op with
+	          A.Neg          -> 
+              if      l_typ = float_t then L.build_fneg e' "tmp" builder
+              else if l_typ = fmatrix_t then build_external "negate" [| e' |] builder
+              else    L.build_neg e' "tmp" builder
+          | A.Not          -> L.build_not e' "tmp" builder
+          | A.Transpose    -> build_external "transpose" [| e' |] builder
+          ) 
       
       | A.Assign (s, e) ->
             let e' = expr builder e in
