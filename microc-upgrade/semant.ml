@@ -1,6 +1,7 @@
 (* Semantic checking for the MicroC compiler *)
 
 open Ast
+open Util
 
 module StringMap = Map.Make(String)
 
@@ -164,7 +165,7 @@ let check (globals, functions) =
 
     (* Verify a statement or throw an exception *)
     let rec stmt = function
-	Block sl -> let rec check_block = function
+        Block sl -> let rec check_block = function
            [Return _ as s] -> stmt s
          | Return _ :: _ -> raise (Failure "nothing may follow a return")
          | Block sl :: ss -> check_block (sl @ ss)

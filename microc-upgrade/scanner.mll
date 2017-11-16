@@ -4,6 +4,7 @@
 
 let esc    = '\\' ['\\' ''' '"' 'n' 'r' 't']
 let ascii  = ([' '-'!' '#'-'[' ']'-'~'])
+let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
@@ -61,11 +62,14 @@ rule token = parse
 (*---------------------------------LITERALS-----------------------------------*)
 | "true"   { TRUE }
 | "false"  { FALSE }
-| ['0'-'9']+ as lxm                                       { INTLIT(int_of_string lxm) }
-| (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm { FLOATLIT(float_of_string lxm) }
-| '"' ((ascii | esc)* as s)'"'               { STRINGLIT(s) }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm  { ID(lxm) }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*"*" as lxm  { PNTR(lxm) }
+| ['0'-'9']+ as lxm                                           { INTLIT(int_of_string lxm) }
+| (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm  { FLOATLIT(float_of_string lxm) }
+| '"' ((ascii | esc)* as s)'"'                                { STRINGLIT(s) }
+| id as lxm                                                   { ID(lxm) }
+| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*"*" as lxm   { PNTR(lxm) }
+(* | (id '.' id) as lxm                                          { let split = Str.split (Str.regexp "\.") lxm in
+                                                                let a = Array.of_list split in
+                                                                STRUCT_ACCESS((a.(0), a.(1)) } *)
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

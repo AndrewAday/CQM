@@ -15,6 +15,7 @@ open Ast
 %token <float> FLOATLIT
 %token <string> ID
 %token <string> PNTR
+%token <string * string> STRUCT_ACCESS
 %token EOF
 
 %nonassoc NOELSE

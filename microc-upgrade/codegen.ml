@@ -14,6 +14,7 @@ http://llvm.moe/ocaml/
 
 module L = Llvm
 module A = Ast
+module U = Util
 
 module StringMap = Map.Make(String)
 
@@ -69,7 +70,7 @@ let translate (globals, functions) =
       StringMap.add name (L.declare_function name ftype the_module, fdecl) m in
     List.fold_left extern_decl StringMap.empty extern_functions in
 
-  let function_decls =  (* TODO: make a local_fn_decls and extern_fn_decls *)
+  let local_decls =  (* TODO: make a local_fn_decls and extern_fn_decls *)
     let function_decl m fdecl =
       let name = fdecl.A.fname
       and formal_types = Array.of_list
@@ -80,7 +81,7 @@ let translate (globals, functions) =
 
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
-    let (the_function, _) = try StringMap.find fdecl.A.fname function_decls with Not_found -> raise (Bug "2") in
+    let (the_function, _) = try StringMap.find fdecl.A.fname local_decls with Not_found -> raise (Bug "2") in
     (* return an instruction builder positioned at end of formal store/loads *)
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
@@ -162,9 +163,9 @@ let translate (globals, functions) =
              _ when l_typ = float_t -> float_ops op
            | _ -> default_ops op
            )
-         with Not_found -> raise (Failure ((A.string_of_op op) ^ " not defined for "
+         with Not_found -> raise (Failure ((U.string_of_op op) ^ " not defined for "
                                  ^ (L.string_of_lltype l_typ) ^ " in "
-                                 ^ (A.string_of_expr e2)))
+                                 ^ (U.string_of_expr e2)))
          in
          build_op e1' e2' "tmp" builder
       | A.Unop(op, e) ->
@@ -192,11 +193,11 @@ let translate (globals, functions) =
             Need to specify the order we eval fn arguments in LRM
          *)
          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-         if (StringMap.mem f function_decls) then
-           let (fdef, fdecl) = StringMap.find f function_decls in
+         if (StringMap.mem f local_decls) then
+           let (fdef, fdecl) = StringMap.find f local_decls in
            let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
            L.build_call fdef (Array.of_list actuals) result_name builder
-         else 
+         else
            let (fdef, fdecl) = StringMap.find f extern_decls in
            let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
            L.build_call fdef (Array.of_list actuals) result_name builder
