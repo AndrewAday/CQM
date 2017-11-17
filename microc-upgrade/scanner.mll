@@ -18,6 +18,7 @@ rule token = parse
 | ']'      { RBRACK }
 | ';'      { SEMI }
 | ','      { COMMA }
+| '.'      { PERIOD }
 (*---------------------------------OPERATORS----------------------------------*)
 | '+'      { PLUS }
 | '-'      { MINUS }
@@ -67,9 +68,6 @@ rule token = parse
 | '"' ((ascii | esc)* as s)'"'                                { STRINGLIT(s) }
 | id as lxm                                                   { ID(lxm) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*"*" as lxm   { PNTR(lxm) }
-(* | (id '.' id) as lxm                                          { let split = Str.split (Str.regexp "\.") lxm in
-                                                                let a = Array.of_list split in
-                                                                STRUCT_ACCESS((a.(0), a.(1)) } *)
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

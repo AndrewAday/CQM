@@ -20,11 +20,15 @@ module StringMap = Map.Make(String)
 
 exception Bug of string;;
 
-let translate (globals, functions) =
+let translate program =
+  let globals = program.A.global_vars
+  and functions = program.A.functions
+  and structs = program.A.structs in
+
   let context = L.global_context () in
   let the_module = L.create_module context "MicroC"
 
-  (* ========================= Types ========================= *)
+(* =============================== Types ==================================== *)
   and float_t = L.double_type context
   and i32_t  = L.i32_type  context
   and i8_t   = L.i8_type   context
@@ -33,18 +37,39 @@ let translate (globals, functions) =
 
   let string_t = L.pointer_type i8_t in
 
-  let ltype_of_typ = function
+  let ltype_of_primitive_type = function
       A.Int -> i32_t
     | A.Float -> float_t
     | A.String -> string_t
     | A.Bool -> i1_t
     | A.Void -> void_t in
-  (* ========================================================= *)
 
+  let ltype_of_typ struct_decl_map = function
+      A.PrimitiveType(t) -> ltype_of_primitive_type(t)
+    | A.StructType(s) -> fst (StringMap.find s struct_decl_map) in
+(* ========================================================================== *)
+  (* Collect struct declarations. Builds a map struct_name[string] -> ([lltype], [A.struct_decl])  *)
+  let struct_decl_map =
+    let add_struct m struct_decl =
+      let name = struct_decl.A.name
+      and members = Array.of_list
+        (List.map (fun (t, _) -> ltype_of_typ m t) struct_decl.A.members) in
+      let struct_type = L.named_struct_type context name in
+        L.struct_set_body struct_type members false;
+      (* let struct_type = L.struct_type context members in (* TODO: use named or unnamed structs? *) *)
+      StringMap.add name (struct_type, struct_decl) m in
+    List.fold_left add_struct StringMap.empty structs in
+
+  (* TODO: fail test trying to access a member of an undeclared struct *)
+  let get_struct_decl s_name =
+    try StringMap.find s_name struct_decl_map
+    with Not_found -> raise (Failure (s_name ^ " not declared"))
+  in
   (* Declare each global variable; remember its value in a map *)
+  (* Map variable_name[string] --> [llvalue] *)
   let global_vars =
     let global_var m (t, name) =
-      let init = L.const_int (ltype_of_typ t) 0
+      let init = L.const_int (ltype_of_typ struct_decl_map t) 0
       in StringMap.add name (L.define_global name init the_module) m in
     List.fold_left global_var StringMap.empty globals in
 
@@ -65,8 +90,8 @@ let translate (globals, functions) =
     let extern_decl m fdecl =
       let name = fdecl.A.fname and
         formal_types = Array.of_list
-          (List.map(fun (t, _) -> ltype_of_typ t) fdecl.A.formals) in
-      let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
+          (List.map(fun (t, _) -> ltype_of_typ struct_decl_map t) fdecl.A.formals) in
+      let ftype = L.function_type (ltype_of_typ struct_decl_map fdecl.A.typ) formal_types in
       StringMap.add name (L.declare_function name ftype the_module, fdecl) m in
     List.fold_left extern_decl StringMap.empty extern_functions in
 
@@ -74,18 +99,19 @@ let translate (globals, functions) =
     let function_decl m fdecl =
       let name = fdecl.A.fname
       and formal_types = Array.of_list
-        (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals) in
-      let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
+        (List.map (fun (t,_) -> ltype_of_typ struct_decl_map t) fdecl.A.formals) in
+      let ftype = L.function_type (ltype_of_typ struct_decl_map fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty local_functions in
 
   (* Fill in the body of the given function *)
+  (* TODO: need to make all structs default on heap. If initialized locally, put on heap.
+     If seen in function signature, treat as struct pointer
+   *)
   let build_function_body fdecl =
     let (the_function, _) = try StringMap.find fdecl.A.fname local_decls with Not_found -> raise (Bug "2") in
     (* return an instruction builder positioned at end of formal store/loads *)
     let builder = L.builder_at_end context (L.entry_block the_function) in
-
-    (* let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in *)
 
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -94,12 +120,12 @@ let translate (globals, functions) =
       (* need to alloc and store params *)
       let add_formal m (t, n) p =
         L.set_value_name n p;
-  	    let local = L.build_alloca (ltype_of_typ t) n builder in
+  	    let local = L.build_alloca (ltype_of_typ struct_decl_map t) n builder in
         ignore (L.build_store p local builder);  (* local is stack pointer *)
         StringMap.add n local m in
       (* only need to alloc local vars *)
       let add_local m (t, n) =
-        let local_var = L.build_alloca (ltype_of_typ t) n builder
+        let local_var = L.build_alloca (ltype_of_typ struct_decl_map t) n builder
         in StringMap.add n local_var m in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
@@ -108,7 +134,7 @@ let translate (globals, functions) =
     List.fold_left add_local formals fdecl.A.locals in
 
     (* Return the llvalue for a variable or formal argument *)
-    let lookup n = try StringMap.find n local_vars
+    let lookup_var n = try StringMap.find n local_vars
                    with Not_found -> StringMap.find n global_vars
     in
 
@@ -152,7 +178,24 @@ let translate (globals, functions) =
       | A.StringLit s -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup s) s builder
+      | A.Id s -> L.build_load (lookup_var s) s builder
+      | A.StructAccess (s_name, member) ->
+        let struct_llvalue = lookup_var s_name
+        and llname = (s_name ^ "." ^ member)
+        and (_, struct_decl) = get_struct_decl s_name in
+        let struct_gep =
+          L.build_struct_gep struct_llvalue (U.get_struct_member_idx struct_decl member)
+          llname builder in
+        L.build_load struct_gep llname builder
+      | A.StructAssign (s_name, member, e) ->
+          let e' = expr builder e
+          and struct_llvalue = lookup_var s_name
+          and llname = (s_name ^ "." ^ member)
+          and (_, struct_decl ) = get_struct_decl s_name in
+          let struct_gep =
+            L.build_struct_gep struct_llvalue (U.get_struct_member_idx struct_decl member)
+            llname builder in
+          ignore (L.build_store e' struct_gep builder); e'
       | A.Binop (e1, op, e2) ->
 	       let e1' = expr builder e1
          and e2' = expr builder e2 in
@@ -177,30 +220,25 @@ let translate (globals, functions) =
          ) e' "tmp" builder
       | A.Assign (s, e) ->
             let e' = expr builder e in
-            ignore (L.build_store e' (lookup s) builder); e'
-      (* | A.Call ("print", [e]) | A.Call ("printb", [e]) -> *)
+            ignore (L.build_store e' (lookup_var s) builder); e'
       | A.Call ("printf", act) ->
-         (* TODO: make generic *)
-         (* TODO: add printb and print library fns *)
          let actuals = List.map (expr builder) act in
   	     L.build_call
             printf_func
             (Array.of_list actuals)
             "printf"
             builder
-      | A.Call (f, act) ->
+      | A.Call (f_name, act) -> (* TODO: passing struct as pointer argument in fn *)
          (* we double reverse here for historic reasons. should we undo?
             Need to specify the order we eval fn arguments in LRM
          *)
          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-         if (StringMap.mem f local_decls) then
-           let (fdef, fdecl) = StringMap.find f local_decls in
-           let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
-           L.build_call fdef (Array.of_list actuals) result_name builder
+         if (StringMap.mem f_name local_decls) then
+           let (fdef, fdecl) = StringMap.find f_name local_decls in
+           L.build_call fdef (Array.of_list actuals) (U.get_result_name f_name fdecl.A.typ) builder
          else
-           let (fdef, fdecl) = StringMap.find f extern_decls in
-           let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
-           L.build_call fdef (Array.of_list actuals) result_name builder
+           let (fdef, fdecl) = StringMap.find f_name extern_decls in
+           L.build_call fdef (Array.of_list actuals) (U.get_result_name f_name fdecl.A.typ) builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
@@ -219,7 +257,7 @@ let translate (globals, functions) =
       | A.Expr e -> ignore (expr builder e); builder
       | A.Return e -> ignore
           (match fdecl.A.typ with
-	          A.Void -> L.build_ret_void builder
+	          A.PrimitiveType(t) when t = A.Void -> L.build_ret_void builder
             | _ -> L.build_ret (expr builder e) builder
           ); builder
       | A.If (predicate, then_stmt, else_stmt) ->
@@ -254,9 +292,9 @@ let translate (globals, functions) =
     (* Add a return if the last block falls off the end *)
     add_terminal builder (match fdecl.A.typ with
       (* TODO: catch void *)
-        A.Void -> L.build_ret_void
-      | A.Float -> L.build_ret (L.const_float float_t 0.0)
-      | t -> L.build_ret (L.const_int (ltype_of_typ t) 0)
+        A.PrimitiveType(t) when t = A.Void -> L.build_ret_void
+      | A.PrimitiveType(t) when t = A.Float -> L.build_ret (L.const_float float_t 0.0)
+      | t -> L.build_ret (L.const_int (ltype_of_typ struct_decl_map t) 0)
     )
   in
 

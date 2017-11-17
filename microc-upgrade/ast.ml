@@ -5,7 +5,16 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not
 
-type typ = Float | Int | Bool | Void | String (* | Struct_type *)
+  (* TODO: to support nested structs, will want to def StructAccess of (StructAccess * string) *)
+(* type struct_access = string * string *)
+
+(* Types *)
+type primitive_type = Float | Int | Bool | Void | String
+type typ =
+    PrimitiveType of primitive_type
+  | StructType of string
+  (* | PointerType of typ *)
+
 
 type location = Local | External
 
@@ -21,6 +30,8 @@ type expr =
   | Unop of uop * expr
   | Assign of string * expr
   | Call of string * expr list
+  | StructAccess of (string * string)
+  | StructAssign of (string * string * expr)
   | Noexpr
 
 type stmt =
@@ -38,11 +49,15 @@ type func_decl = {
     locals : bind list;
     body : stmt list;
     location : location;
-  }
+}
 
-(* type struct_decl = {
-    struct_name : string;
+type struct_decl = {
+    name : string;
     members : bind list;
-} *)
+}
 
-type program = bind list * func_decl list
+type program = {
+    global_vars: bind list;
+    functions: func_decl list;
+    structs: struct_decl list;
+}
