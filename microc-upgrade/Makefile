@@ -5,13 +5,17 @@
 # Easiest way to build: using ocamlbuild, which in turn uses ocamlfind
 
 .PHONY : all
-all : microc.native printbig.o
+all : microc.native printbig.o eigenlib
 
 .PHONY : microc.native
 microc.native :
 	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis -cflags -w,+a-4 \
 		microc.native
 
+.PHONY : eigenlib
+eigenlib :
+	cd lib/src && make
+	ln -s lib/src/libeigentest.so libeigentest.so
 # "make clean" removes all generated files
 
 .PHONY : clean
@@ -19,7 +23,8 @@ clean :
 	ocamlbuild -clean
 	rm -rf testall.log *.diff microc scanner.ml parser.ml parser.mli
 	rm -rf printbig
-	rm -rf *.cmx *.cmi *.cmo *.cmx *.o *.s *.ll *.out *.exe
+	rm -rf *.cmx *.cmi *.cmo *.cmx *.o *.s *.ll *.out *.exe *.so
+	cd lib/src && make clean && make cleanlib
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind to locate LLVM
 
