@@ -4,6 +4,7 @@
 
 let esc    = '\\' ['\\' ''' '"' 'n' 'r' 't']
 let ascii  = ([' '-'!' '#'-'[' ']'-'~'])
+let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
@@ -17,6 +18,7 @@ rule token = parse
 | ']'      { RBRACK }
 | ';'      { SEMI }
 | ','      { COMMA }
+| '.'      { PERIOD }
 (*---------------------------------OPERATORS----------------------------------*)
 | '+'      { PLUS }
 | '-'      { MINUS }
@@ -64,8 +66,8 @@ rule token = parse
 | ['0'-'9']+ as lxm                                           { INTLIT(int_of_string lxm) }
 | (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm  { FLOATLIT(float_of_string lxm) }
 | '"' ((ascii | esc)* as s)'"'                                { STRINGLIT(s) }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm      { ID(lxm) }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*"*" as lxm   { PNTR(lxm) }
+| id as lxm                                                   { ID(lxm) }
+| id"*" as lxm                                                { PNTR(lxm) }
 | eof                                                         { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

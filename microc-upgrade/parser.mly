@@ -5,7 +5,7 @@ open Ast
 %}
 
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA
+%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA PERIOD
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS MATMUL MATDOTMUL SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
 %token RETURN IF ELSE FOR WHILE EXTERN NEW
@@ -19,6 +19,7 @@ open Ast
 
 %nonassoc NOELSE
 %nonassoc ELSE
+
 %right ASSIGN
 %left PIPE
 %left OR
@@ -41,9 +42,28 @@ program:
   decls EOF { $1 }
 
 decls:
-   /* nothing */ { [], [] }
- | decls vdecl { ($2 :: fst $1), snd $1 }
- | decls fdecl { fst $1, ($2 :: snd $1) }
+   /* nothing */  {{ global_vars = []; functions = []; structs = []; }}
+ | decls vdecl    {{
+                    global_vars = $2 :: $1.global_vars;
+                    functions = $1.functions;
+                    structs = $1.structs;
+                  }}
+ | decls fdecl    {{
+                    global_vars = $1.global_vars;
+                    functions = $2 :: $1.functions;
+                    structs = $1.structs;
+                  }}
+ | decls str_decl {{
+                    global_vars = $1.global_vars;
+                    functions = $1.functions;
+                    structs = $2 :: $1.structs;
+                  }}
+str_decl:
+  STRUCT ID LBRACE vdecl_list RBRACE
+  {{
+    name = $2;
+    members = List.rev $4;
+  }}
 
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
@@ -69,7 +89,12 @@ formal_list:
     typ ID                   { [($1,$2)] }
   | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
+/*==============================Type Parsing==================================*/
 typ:
+    primitive_type {PrimitiveType($1)}
+  | struct_type    {$1}
+
+primitive_type:
     INT { Int }
   | FLOAT { Float }
   | STRING { String }
@@ -79,6 +104,11 @@ typ:
   | SMATRIX { Smatrix }
   | FMATRIX { Fmatrix }
   | TUPLE { Tuple }
+
+struct_type:
+    STRUCT ID { StructType($2) }
+
+/*============================================================================*/
 
 vdecl_list:
     /* nothing */    { [] }
@@ -141,9 +171,11 @@ expr:
   | NOT expr         { Unop(Not, $2) }
   | ID ASSIGN expr   { Assign($1, $3) }
   | expr PIPE expr   { Pipe($1, $3) }
-  | NEW typ LPAREN actuals_opt RPAREN            { Call(string_of_typ $2, $4) }
+  /*| NEW typ LPAREN actuals_opt RPAREN            { Call(string_of_typ $2, $4) }*/
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
   | LPAREN expr RPAREN { $2 }
+  | ID PERIOD ID      { StructAccess($1, $3) }
+  | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
 
 actuals_opt:
     /* nothing */ { [] }

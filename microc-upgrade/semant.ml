@@ -1,6 +1,7 @@
 (* Semantic checking for the MicroC compiler *)
 
 open Ast
+open Util
 
 module StringMap = Map.Make(String)
 
@@ -9,36 +10,33 @@ module StringMap = Map.Make(String)
 
    Check each global variable, then check each function *)
 
-let check (globals, functions) =
+let check program =
 
-  (* Raise an exception if the given list has a duplicate *)
-  let report_duplicate exceptf list =
-    let rec helper = function
-	n1 :: n2 :: _ when n1 = n2 -> raise (Failure (exceptf n1))
-      | _ :: t -> helper t
-      | [] -> ()
-    in helper (List.sort compare list)
-  in
+  let globals = program.global_vars
+  and functions = program.functions
+  and structs = program.structs in
 
-  (* Raise an exception if a given binding is to a void type *)
-  let check_not_void exceptf = function
-      (Void, n) -> raise (Failure (exceptf n))
-    | _ -> ()
-  in
-
-  (* Raise an exception of the given rvalue type cannot be assigned to
-     the given lvalue type *)
-  let check_assign lvaluet rvaluet err =
-     if lvaluet == rvaluet then lvaluet else raise err
-  in
-
-  (**** Checking Global Variables ****)
-
+(*=========================== Checking Globals ===============================*)
   List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
+  List.iter (check_no_structs (fun n -> "illegal struct global " ^ n)) globals;
+
+  (* TODO: support global structs. To do this construct struct definitions first in codegen *)
+  (* List.iter (check_no_opaque (fun n -> "opaque struct " ^ n)) globals; *)
 
   report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals);
 
-  (**** Checking Functions ****)
+(*=========================== Checking Structs ===============================*)
+(* TODO: struct empty fail test, struct duplicate fail test *)
+(* TODO: passing struct info function test *)
+  List.iter (check_struct_not_empty (fun n -> "empty struct " ^ n)) structs;
+  List.iter (check_struct_no_nested (fun n -> "nested struct " ^ n)) structs;
+  report_duplicate (fun n -> "duplicate struct name: " ^ n)
+    (List.map (fun s -> s.name) structs);
+
+  let struct_decls = List.fold_left (fun m sd -> StringMap.add sd.name sd m)
+                      StringMap.empty structs in
+
+(*=========================== Checking Functions =============================*)
 
   (* if List.mem "print" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else (); *)
@@ -77,8 +75,9 @@ let check (globals, functions) =
       (List.map snd func.locals);
 
     (* Type of each variable (global, formal, or local *)
+    (* TODO: add support for global structs *)
     let symbols = List.fold_left (fun m (t, n) -> StringMap.add n t m)
-	StringMap.empty (globals @ func.formals @ func.locals )
+	     StringMap.empty (globals @ func.formals @ func.locals )
     in
 
     let type_of_identifier s =
@@ -86,65 +85,116 @@ let check (globals, functions) =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
+    let get_struct_decl s =
+      match type_of_identifier s with
+        PrimitiveType(_) -> raise (Failure ("Not a struct " ^ s))
+      | StructType(s_name) ->
+          try StringMap.find s_name struct_decls
+          with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+    in
     (* ========================= Binary Operators ========================= *)
 
-    let check_default_ops t1 t2 = function
-      Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-    | Equal | Neq when t1 = t2 -> Bool
-    | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-    | And | Or when t1 = Bool && t2 = Bool -> Bool
-    | _ -> raise Not_found
+    let check_default_ops t1 t2 op =
+      let helper p1 p2 = function
+          Add | Sub | Mult | Div when p1 = Int && p2 = Int -> Int
+        | Equal | Neq when p1 = p2 -> Bool
+        | Less | Leq | Greater | Geq when p1 = Int && p2 = Int -> Bool
+        | And | Or when p1 = Bool && p2 = Bool -> Bool
+        | _ -> raise Not_found
+      in
+      let t =
+        match (t1, t2) with
+            (PrimitiveType(p1), PrimitiveType(p2)) -> helper p1 p2 op
+          | _ -> raise Not_found
+      in PrimitiveType(t)
     in
 
-    let check_float_ops t1 t2 = function
-      Add | Sub | Mult | Div when t1 = Float && t2 = Float -> Float
-    | Equal | Neq when t1 = t2 -> Bool
-    | Less | Leq | Greater | Geq when t1 = Float && t2 = Float -> Bool
-    | _ -> raise Not_found
+    let check_float_ops t1 t2 op =
+      let helper p1 p2 = function
+          Add | Sub | Mult | Div when p1 = Float && p2 = Float -> Float
+        | Equal | Neq when p1 = p2 -> Bool
+        | Less | Leq | Greater | Geq when p1 = Float && p2 = Float -> Bool
+        | _ -> raise Not_found
+      in
+      let t =
+      match (t1, t2) with
+          (PrimitiveType(p1), PrimitiveType(p2)) -> helper p1 p2 op
+        | _ -> raise Not_found
+      in PrimitiveType(t)
     in
 
-    let check_string_ops t1 t2 = function
-      Add when t1 = String && t2 = String -> String
-    | Equal | Neq when t1 = t2 -> Bool
-    | _ -> raise Not_found
+    let check_string_ops (t1: typ) (t2: typ) op =
+      let helper (p1: primitive_type) (p2: primitive_type) = function
+          Add when p1 = String && p2 = String -> String
+        | Equal | Neq when p1 = p2 -> Bool
+        | _ -> raise Not_found
+      in
+      let t =
+        match (t1, t2) with
+            (PrimitiveType(p1), PrimitiveType(p2)) -> helper p1 p2 op
+          | _ -> raise Not_found
+      in PrimitiveType(t)
     in
+
+    let check_unary_ops t op =
+      let helper p = function
+          Neg when p = Int -> Int
+        | Neg when p = Float -> Float
+        | Not when p = Bool -> Bool
+        | _ -> raise Not_found
+      in
+      match t with
+          PrimitiveType(t) -> PrimitiveType(helper t op)
+        | _ -> raise Not_found
+    in
+
 
     (* ==================================================================== *)
 
     (* Return the type of an expression or throw an exception *)
-    let rec expr = function
-	      IntLit _ -> Int
-      | FloatLit _ -> Float
-      | BoolLit _ -> Bool
-      | StringLit _ -> String
-      | Noexpr -> Void
+    let rec expr : expr -> typ = function
+	      IntLit _ -> PrimitiveType(Int)
+      | FloatLit _ -> PrimitiveType(Float)
+      | BoolLit _ -> PrimitiveType(Bool)
+      | StringLit _ -> PrimitiveType(String)
+      | Noexpr -> PrimitiveType(Void)
       | Id s -> type_of_identifier s
-      | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
-         let typ =
+      (* TODO: illegal access test *)
+      | StructAccess (s_name, member) -> ignore(type_of_identifier s_name); (*check it's declared *)
+          let s_decl = get_struct_decl s_name in (* get the ast struct_decl type *)
+          get_struct_member_type s_decl member
+          ("Illegal struct member access: " ^ s_name  ^ "." ^ member)
+      | StructAssign (s_name, member, e) as ex ->  (* TODO: add illegal assign test *)
+          let t = expr e and struct_decl = get_struct_decl s_name in
+          let member_t = get_struct_member_type struct_decl member
+              ("Illegal struct member access: " ^ s_name  ^ "." ^ member) in
+          check_assign member_t t (Failure ("illegal assignment " ^ string_of_typ member_t ^
+  				     " = " ^ string_of_typ t ^ " in " ^
+  				     string_of_expr ex))
+      | Binop(e1, op, e2) as e -> let t1: typ = expr e1 and t2: typ = expr e2 in
+         let expr_type =
            try
              (match t1 with
-               _ when t1 = Float -> check_float_ops t1 t2 op
-             | _ when t1 = String -> check_string_ops t1 t2 op
+               PrimitiveType(t) when t = Float -> check_float_ops t1 t2 op
+             | PrimitiveType(t) when t = String -> check_string_ops t1 t2 op
              | _ -> check_default_ops t1 t2 op
              )
            with Not_found -> raise (Failure ("illegal binary operator " ^
                                   string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                                   string_of_typ t2 ^ " in " ^ string_of_expr e))
-         in typ
+         in expr_type
       | Unop(op, e) as ex -> let t = expr e in
-      	 (match op with
-      	   Neg when t = Int -> Int
-         | Neg when t = Float -> Float
-      	 | Not when t = Bool -> Bool
-         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-      	  		                 string_of_typ t ^ " in " ^ string_of_expr ex))
-         )
+          let expr_type =
+            try check_unary_ops t op
+        	  with Not_found -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+        	  		                 string_of_typ t ^ " in " ^ string_of_expr ex))
+          in expr_type
       | Assign(var, e) as ex -> let lt = type_of_identifier var
                                 and rt = expr e in
         check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
 				     " = " ^ string_of_typ rt ^ " in " ^
 				     string_of_expr ex))
-      | Call("printf", _) -> Int
+      | Call("printf", _) -> PrimitiveType(Int)
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
@@ -156,15 +206,18 @@ let check (globals, functions) =
                 " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
              fd.formals actuals;
            fd.typ
+      | _ -> PrimitiveType(Void)  (*Not implemented *)
     in
 
-    let check_bool_expr e = if expr e != Bool
-     then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
+    let check_bool_expr e = if not (match_bool (expr e))
+     then raise (Failure (
+       "expected Boolean expression in " ^ string_of_expr e
+       ))
      else () in
 
     (* Verify a statement or throw an exception *)
     let rec stmt = function
-	Block sl -> let rec check_block = function
+        Block sl -> let rec check_block = function
            [Return _ as s] -> stmt s
          | Return _ :: _ -> raise (Failure "nothing may follow a return")
          | Block sl :: ss -> check_block (sl @ ss)
@@ -172,10 +225,10 @@ let check (globals, functions) =
          | [] -> ()
         in check_block sl
       | Expr e -> ignore (expr e)
-      | Return e -> let t = expr e in if t = func.typ then () else
-         raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
+      | Return e -> let t = expr e in
+          if (check_asn_silent t func.typ) then () else
+          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
                          string_of_typ func.typ ^ " in " ^ string_of_expr e))
-
       | If(p, b1, b2) -> check_bool_expr p; stmt b1; stmt b2
       | For(e1, e2, e3, st) -> ignore (expr e1); check_bool_expr e2;
                                ignore (expr e3); stmt st
