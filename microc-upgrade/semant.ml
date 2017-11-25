@@ -191,6 +191,9 @@ let check program =
           in expr_type
       | Assign(var, e) as ex -> let lt = type_of_identifier var
                                 and rt = expr e in
+        if (match_struct lt) then raise (Failure ("illegal struct assignment " ^ string_of_typ lt ^
+				     " = " ^ string_of_typ rt ^ " in " ^
+				     string_of_expr ex));
         check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
 				     " = " ^ string_of_typ rt ^ " in " ^
 				     string_of_expr ex))
