@@ -5,10 +5,15 @@ let check_not_void exceptf = function
     (PrimitiveType(t), n) when t = Void -> raise (Failure (exceptf n))
   | _ -> ()
 
+let check_no_structs exceptf = function
+    (StructType(n), _) -> raise (Failure (exceptf n))
+  | _ -> ()
+
 let check_asn_silent lvaluet rvaluet =
   match (lvaluet, rvaluet) with
-      (PrimitiveType(p1), PrimitiveType(p2)) -> if p1 == p2 then true else false
-    | (StructType(s1), StructType(s2)) -> if s1 == s2 then true else false
+      (PrimitiveType(p1), PrimitiveType(p2)) -> if p1 = p2 then true else false
+    | (StructType(s1), StructType(s2)) -> if s1 = s2 then true else
+        (print_endline (s1 ^ s2); false)
     | _ -> false
 
 (* Raise an exception of the given rvalue type cannot be assigned to
@@ -20,6 +25,10 @@ let check_assign lvaluet rvaluet err =
 let match_bool = function
       PrimitiveType(p) -> if p = Bool then true else false
     | _ -> false
+
+let match_struct = function
+    StructType(_) -> true
+  | _ -> false
 
 (*============================== List Checkers ============================== *)
 let report_duplicate exceptf lst =
@@ -33,6 +42,12 @@ let report_duplicate exceptf lst =
 let check_struct_not_empty exceptf = function
     { name = n; members = []; } -> raise (Failure (exceptf n))
   | _ -> ()
+
+let check_struct_no_nested exceptf struct_decl =
+  let n = struct_decl.name in
+  if
+    List.exists match_struct (List.map (fun member -> fst member) struct_decl.members)
+  then raise (Failure (exceptf n)) else ()
 
 let check_no_opaque exceptf = function
     (_, n) -> raise (Failure (exceptf n))

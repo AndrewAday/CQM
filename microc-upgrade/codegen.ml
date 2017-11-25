@@ -46,7 +46,7 @@ let translate program =
 
   let ltype_of_typ struct_decl_map = function
       A.PrimitiveType(t) -> ltype_of_primitive_type(t)
-    | A.StructType(s) -> fst (StringMap.find s struct_decl_map) in
+    | A.StructType(s) -> L.pointer_type (fst (StringMap.find s struct_decl_map)) in
 (* ========================================================================== *)
   (* Collect struct declarations. Builds a map struct_name[string] -> ([lltype], [A.struct_decl])  *)
   let struct_decl_map =
@@ -54,23 +54,19 @@ let translate program =
       let name = struct_decl.A.name
       and members = Array.of_list
         (List.map (fun (t, _) -> ltype_of_typ m t) struct_decl.A.members) in
-      let struct_type = L.named_struct_type context name in
+      let struct_type = L.named_struct_type context ("struct."^name) in
         L.struct_set_body struct_type members false;
       (* let struct_type = L.struct_type context members in (* TODO: use named or unnamed structs? *) *)
       StringMap.add name (struct_type, struct_decl) m in
     List.fold_left add_struct StringMap.empty structs in
 
-  (* TODO: fail test trying to access a member of an undeclared struct *)
-  let get_struct_decl s_name =
-    try StringMap.find s_name struct_decl_map
-    with Not_found -> raise (Failure (s_name ^ " not declared"))
-  in
   (* Declare each global variable; remember its value in a map *)
   (* Map variable_name[string] --> [llvalue] *)
   let global_vars =
     let global_var m (t, name) =
-      let init = L.const_int (ltype_of_typ struct_decl_map t) 0
-      in StringMap.add name (L.define_global name init the_module) m in
+      let init = L.const_int (ltype_of_typ struct_decl_map t) 0 in
+      let global_llvalue = L.define_global name init the_module in
+      StringMap.add name (global_llvalue, t) m in
     List.fold_left global_var StringMap.empty globals in
 
   (* Declare printf(), which the print built-in function will call *)
@@ -95,7 +91,7 @@ let translate program =
       StringMap.add name (L.declare_function name ftype the_module, fdecl) m in
     List.fold_left extern_decl StringMap.empty extern_functions in
 
-  let local_decls =  (* TODO: make a local_fn_decls and extern_fn_decls *)
+  let local_decls =
     let function_decl m fdecl =
       let name = fdecl.A.fname
       and formal_types = Array.of_list
@@ -122,11 +118,18 @@ let translate program =
         L.set_value_name n p;
   	    let local = L.build_alloca (ltype_of_typ struct_decl_map t) n builder in
         ignore (L.build_store p local builder);  (* local is stack pointer *)
-        StringMap.add n local m in
+        StringMap.add n (local, t) m in
       (* only need to alloc local vars *)
-      let add_local m (t, n) =
-        let local_var = L.build_alloca (ltype_of_typ struct_decl_map t) n builder
-        in StringMap.add n local_var m in
+      let add_local m (t, n) = match t with
+          A.PrimitiveType(_) ->
+            let local_var = L.build_alloca (ltype_of_typ struct_decl_map t) n builder
+            in StringMap.add n (local_var, t) m
+        | A.StructType(s) ->
+            let struct_ptr = L.build_alloca (ltype_of_typ struct_decl_map t) n builder in
+            let struct_malloc = L.build_malloc (fst (StringMap.find s struct_decl_map)) (n ^ "_malloc") builder in
+            ignore (L.build_store struct_malloc struct_ptr builder);
+            StringMap.add n (struct_ptr, t) m
+      in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
           (Array.to_list (L.params the_function)) in
@@ -134,8 +137,22 @@ let translate program =
     List.fold_left add_local formals fdecl.A.locals in
 
     (* Return the llvalue for a variable or formal argument *)
-    let lookup_var n = try StringMap.find n local_vars
-                   with Not_found -> StringMap.find n global_vars
+    let lookup_var n = try fst (StringMap.find n local_vars)
+                   with Not_found -> fst (StringMap.find n global_vars)
+    in
+
+    let lookup_decl n = try snd (StringMap.find n local_vars)
+                   with Not_found -> snd (StringMap.find n global_vars)
+    in
+
+    (* TODO: fail test trying to access a member of an undeclared struct *)
+    let get_struct_decl s_name =
+      try
+        let typ = lookup_decl s_name in
+        match typ with
+          A.PrimitiveType(_) -> raise Not_found
+        | A.StructType(s) -> snd (StringMap.find s struct_decl_map)
+      with Not_found -> raise (Failure (s_name ^ " not declared"))
     in
 
     (* ========================= Binary Operators ========================= *)
@@ -180,20 +197,22 @@ let translate program =
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup_var s) s builder
       | A.StructAccess (s_name, member) ->
-        let struct_llvalue = lookup_var s_name
+        let struct_ptr = lookup_var s_name
         and llname = (s_name ^ "." ^ member)
-        and (_, struct_decl) = get_struct_decl s_name in
+        and struct_decl = get_struct_decl s_name in
+        let struct_malloc = L.build_load struct_ptr ("struct."^s_name) builder in
         let struct_gep =
-          L.build_struct_gep struct_llvalue (U.get_struct_member_idx struct_decl member)
+          L.build_struct_gep struct_malloc (U.get_struct_member_idx struct_decl member)
           llname builder in
         L.build_load struct_gep llname builder
       | A.StructAssign (s_name, member, e) ->
           let e' = expr builder e
-          and struct_llvalue = lookup_var s_name
+          and struct_ptr = lookup_var s_name
           and llname = (s_name ^ "." ^ member)
-          and (_, struct_decl ) = get_struct_decl s_name in
+          and struct_decl = get_struct_decl s_name in
+          let struct_malloc = L.build_load struct_ptr ("struct."^s_name) builder in
           let struct_gep =
-            L.build_struct_gep struct_llvalue (U.get_struct_member_idx struct_decl member)
+            L.build_struct_gep struct_malloc (U.get_struct_member_idx struct_decl member)
             llname builder in
           ignore (L.build_store e' struct_gep builder); e'
       | A.Binop (e1, op, e2) ->

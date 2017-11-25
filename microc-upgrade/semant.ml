@@ -18,6 +18,7 @@ let check program =
 
 (*=========================== Checking Globals ===============================*)
   List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
+  List.iter (check_no_structs (fun n -> "illegal struct global " ^ n)) globals;
 
   (* TODO: support global structs. To do this construct struct definitions first in codegen *)
   (* List.iter (check_no_opaque (fun n -> "opaque struct " ^ n)) globals; *)
@@ -28,17 +29,13 @@ let check program =
 (* TODO: struct empty fail test, struct duplicate fail test *)
 (* TODO: passing struct info function test *)
   List.iter (check_struct_not_empty (fun n -> "empty struct " ^ n)) structs;
-
+  List.iter (check_struct_no_nested (fun n -> "nested struct " ^ n)) structs;
   report_duplicate (fun n -> "duplicate struct name: " ^ n)
     (List.map (fun s -> s.name) structs);
 
   let struct_decls = List.fold_left (fun m sd -> StringMap.add sd.name sd m)
                       StringMap.empty structs in
 
-  let get_struct_decl s =
-    try StringMap.find s struct_decls
-    with Not_found -> raise (Failure ("undeclared identifier " ^ s))
-  in
 (*=========================== Checking Functions =============================*)
 
   (* if List.mem "print" (List.map (fun fd -> fd.fname) functions)
@@ -88,6 +85,13 @@ let check program =
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
+    let get_struct_decl s =
+      match type_of_identifier s with
+        PrimitiveType(_) -> raise (Failure ("Not a struct " ^ s))
+      | StructType(s_name) ->
+          try StringMap.find s_name struct_decls
+          with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+    in
     (* ========================= Binary Operators ========================= *)
 
     let check_default_ops t1 t2 op =
