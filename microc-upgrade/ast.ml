@@ -14,6 +14,7 @@ type primitive_type = Float | Int | Bool | Void | String |
 type typ =
     PrimitiveType of primitive_type
   | StructType of string
+  | ArrayType of typ
   (* | PointerType of typ *)
 
 type location = Local | External
@@ -40,6 +41,10 @@ type expr =
   | Call of string * expr list
   | StructAccess of (string * string)
   | StructAssign of (string * string * expr)
+  | ArrayAccess of (string * expr)  (* only allow 1-dim arrays *)
+  | ArrayAssign of (string * expr * expr)
+  | MakeStruct of typ
+  | MakeArray of (typ * expr)
   | Noexpr
 
 type stmt =

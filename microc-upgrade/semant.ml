@@ -18,7 +18,7 @@ let check program =
 
 (*=========================== Checking Globals ===============================*)
   List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
-  List.iter (check_no_structs (fun n -> "illegal struct global " ^ n)) globals;
+  (* List.iter (check_no_structs (fun n -> "illegal struct global " ^ n)) globals; *)
 
   (* TODO: support global structs. To do this construct struct definitions first in codegen *)
   (* List.iter (check_no_opaque (fun n -> "opaque struct " ^ n)) globals; *)
@@ -37,9 +37,12 @@ let check program =
                       StringMap.empty structs in
 
 (*=========================== Checking Functions =============================*)
+  let built_in_keywords = Array.to_list [| "make"; "new"; |] in
 
-  (* if List.mem "print" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else (); *)
+  List.iter (fun fname ->
+    if List.mem fname (List.map (fun fd -> fd.fname) functions)
+    then raise (Failure ("function " ^ fname ^ " may not be defined"))
+  ) built_in_keywords;
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
@@ -87,10 +90,11 @@ let check program =
 
     let get_struct_decl s =
       match type_of_identifier s with
-        PrimitiveType(_) -> raise (Failure ("Not a struct " ^ s))
-      | StructType(s_name) ->
+        StructType(s_name) -> (
           try StringMap.find s_name struct_decls
           with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+        )
+      | _ -> raise (Failure ("Not a struct " ^ s))
     in
     (* ========================= Binary Operators ========================= *)
 
@@ -159,7 +163,12 @@ let check program =
       | StringLit _ -> PrimitiveType(String)
       | Noexpr -> PrimitiveType(Void)
       | Id s -> type_of_identifier s
-      (* TODO: illegal access test *)
+      | MakeStruct (typ) as ex ->
+          if match_struct typ then typ else
+          raise (Failure  ("illegal make, must be type struct, in " ^ string_of_expr ex))
+      | MakeArray (typ, e) as ex ->
+          if match_int (expr e) then ArrayType(typ) else
+          raise (Failure  ("illegal make, must provide integer size, in " ^ string_of_expr ex))
       | StructAccess (s_name, member) -> ignore(type_of_identifier s_name); (*check it's declared *)
           let s_decl = get_struct_decl s_name in (* get the ast struct_decl type *)
           get_struct_member_type s_decl member
@@ -168,9 +177,17 @@ let check program =
           let t = expr e and struct_decl = get_struct_decl s_name in
           let member_t = get_struct_member_type struct_decl member
               ("Illegal struct member access: " ^ s_name  ^ "." ^ member) in
-          check_assign member_t t (Failure ("illegal assignment " ^ string_of_typ member_t ^
-  				     " = " ^ string_of_typ t ^ " in " ^
-  				     string_of_expr ex))
+          check_assign member_t t ex
+      | ArrayAccess (a_name, _) ->
+          let t = type_of_identifier a_name in
+          check_array_or_throw t a_name;
+          get_array_type t
+      | ArrayAssign (a_name, _, e) as ex ->
+          let t = (type_of_identifier a_name)
+          and expr_t = (expr e) in
+          check_array_or_throw t a_name;
+          let arr_t = get_array_type t in
+          check_assign arr_t expr_t ex
       | Binop(e1, op, e2) as e -> let t1: typ = expr e1 and t2: typ = expr e2 in
          let expr_type =
            try
@@ -189,14 +206,11 @@ let check program =
         	  with Not_found -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
         	  		                 string_of_typ t ^ " in " ^ string_of_expr ex))
           in expr_type
-      | Assign(var, e) as ex -> let lt = type_of_identifier var
-                                and rt = expr e in
-        if (match_struct lt) then raise (Failure ("illegal struct assignment " ^ string_of_typ lt ^
-				     " = " ^ string_of_typ rt ^ " in " ^
-				     string_of_expr ex));
-        check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-				     " = " ^ string_of_typ rt ^ " in " ^
-				     string_of_expr ex))
+      | Assign(var, e) as ex ->
+        let lt = type_of_identifier var
+        and rt = expr e in
+        check_assign lt rt ex
+        (* TODO: add rules for struct and array assign *)
       | Call("printf", _) -> PrimitiveType(Int)
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
@@ -204,7 +218,7 @@ let check program =
              (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
          else
            List.iter2 (fun (ft, _) e -> let et = expr e in
-              ignore (check_assign ft et
+              ignore (check_func_param_assign ft et
                 (Failure ("illegal actual argument found " ^ string_of_typ et ^
                 " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
              fd.formals actuals;

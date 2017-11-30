@@ -1,1 +1,0 @@
-Fatal error: exception Failure("illegal struct assignment struct foo = struct foo in f1 = f2")

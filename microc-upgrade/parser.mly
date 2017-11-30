@@ -5,10 +5,10 @@ open Ast
 %}
 
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACK RBRACK COMMA PERIOD
+%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PERIOD LBRACK RBRACK
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS MATMUL MATDOTMUL SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
-%token RETURN IF ELSE FOR WHILE EXTERN NEW
+%token RETURN IF ELSE FOR WHILE EXTERN NEW MAKE
 %token INT BOOL VOID FLOAT STRING IMATRIX SMATRIX FMATRIX TUPLE STRUCT
 %token <int> INTLIT
 %token <string> STRINGLIT
@@ -93,6 +93,7 @@ formal_list:
 typ:
     primitive_type {PrimitiveType($1)}
   | struct_type    {$1}
+  | array_type     {$1}
 
 primitive_type:
     INT { Int }
@@ -108,6 +109,9 @@ primitive_type:
 struct_type:
     STRUCT ID { StructType($2) }
 
+array_type:
+    typ LBRACK RBRACK { ArrayType($1) }
+
 /*============================================================================*/
 
 vdecl_list:
@@ -115,7 +119,7 @@ vdecl_list:
   | vdecl_list vdecl { $2 :: $1 }
 
 vdecl:
-   typ ID SEMI { ($1, $2) }
+    typ ID SEMI                      { ($1, $2) }
 
 stmt_list:
     /* nothing */  { [] }
@@ -164,18 +168,24 @@ expr:
   | LBRACK actuals_opt RBRACK                    { TupLit($2) }
   | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { Matassign(Id($1),$3,$5,$8)}
   | ID LBRACK expr COMMA expr RBRACK             { Matselect(Id($1),$3,$5) }
-  | ID LBRACK expr RBRACK ASSIGN expr            { Tupassign(Id($1),$3,$6) }
-  | ID LBRACK expr RBRACK                        { Tupselect(Id($1),$3) }
+  /*| ID LBRACK expr RBRACK ASSIGN expr            { Tupassign(Id($1),$3,$6) }*/
+  /*| ID LBRACK expr RBRACK                        { Tupselect(Id($1),$3) }*/
   | expr SLICE expr SLICE expr                   { Slice($1,$3,$5) }
   | MINUS expr %prec NEG { Unop(Neg, $2) }
   | NOT expr         { Unop(Not, $2) }
   | ID ASSIGN expr   { Assign($1, $3) }
   | expr PIPE expr   { Pipe($1, $3) }
+  | MAKE LPAREN typ RPAREN    { MakeStruct($3) }
+  | MAKE LPAREN typ COMMA expr RPAREN { MakeArray($3, $5) }
   /*| NEW typ LPAREN actuals_opt RPAREN            { Call(string_of_typ $2, $4) }*/
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
   | LPAREN expr RPAREN { $2 }
   | ID PERIOD ID      { StructAccess($1, $3) }
   | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
+  | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
+  | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
+
+  /*TODO: struct array assign/access */
 
 actuals_opt:
     /* nothing */ { [] }

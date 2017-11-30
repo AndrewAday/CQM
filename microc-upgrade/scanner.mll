@@ -49,6 +49,7 @@ rule token = parse
 | "return" { RETURN }
 | "extern" { EXTERN }
 | "new"    { NEW }
+| "make"   { MAKE }
 (*-----------------------------------TYPES------------------------------------*)
 | "int"    		{ INT }
 | "bool"   		{ BOOL }

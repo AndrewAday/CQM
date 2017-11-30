@@ -13,6 +13,8 @@ int main()
 {
   float what;
   struct foo f1;
+
+  f1 = make(struct foo);
   struct_function(f1, 2);
   print(f1.i);
   struct_function(f1, 3);

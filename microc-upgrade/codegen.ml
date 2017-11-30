@@ -46,11 +46,13 @@ let translate program =
     | _ -> void_t
   in
 
-  let ltype_of_typ struct_decl_map = function
-      A.PrimitiveType(t) -> ltype_of_primitive_type(t)
-    | A.StructType(s) -> L.pointer_type (fst (StringMap.find s struct_decl_map)) in
+  let rec ltype_of_typ struct_decl_map = function
+      A.PrimitiveType(primitive) -> ltype_of_primitive_type(primitive)
+    | A.StructType(s) -> L.pointer_type (fst (StringMap.find s struct_decl_map))
+    | A.ArrayType(typ) -> L.pointer_type (ltype_of_typ struct_decl_map typ)
+  in
 (* ========================================================================== *)
-  (* Collect struct declarations. Builds a map struct_name[string] -> ([lltype], [A.struct_decl])  *)
+  (* Collect struct declarations. Builds a map struct_name[string] -> (lltype, A.struct_decl)  *)
   let struct_decl_map =
     let add_struct m struct_decl =
       let name = struct_decl.A.name
@@ -62,18 +64,35 @@ let translate program =
       StringMap.add name (struct_type, struct_decl) m in
     List.fold_left add_struct StringMap.empty structs in
 
+  (* function used to initialize global and local variables *)
+  let empty_string = L.define_global "__empty_string" (L.const_stringz context "") the_module in
+  let init_var = function
+      A.PrimitiveType(typ) -> (
+        match typ with
+          A.Float -> L.const_float float_t 0.0
+        | A.Bool -> L.const_int i1_t 0
+        | A.String -> L.const_bitcast empty_string string_t
+        (* TODO: jayz, what are the default types here? *)
+        (* | A.Imatrix | A.Fmatrix | A.Smatrix *)
+        | _ -> L.const_int i32_t 0
+      )
+    | A.StructType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
+    | A.ArrayType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
+  in
+
   (* Declare each global variable; remember its value in a map *)
-  (* Map variable_name[string] --> [llvalue] *)
+  (* Map variable_name[string] --> (llvalue, A.typ) *)
   let global_vars =
     let global_var m (t, name) =
-      let init = L.const_int (ltype_of_typ struct_decl_map t) 0 in
+      let init = init_var t in
       let global_llvalue = L.define_global name init the_module in
       StringMap.add name (global_llvalue, t) m in
     List.fold_left global_var StringMap.empty globals in
 
-  (* Declare printf(), which the print built-in function will call *)
+(*======================= EXTERNAL FUNCTION DECLARATIONS =====================*)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
+(*============================================================================*)
 
   (*
   Define each function (arguments and return type) so we can call it
@@ -122,24 +141,19 @@ let translate program =
         ignore (L.build_store p local builder);  (* local is stack pointer *)
         StringMap.add n (local, t) m in
       (* only need to alloc local vars *)
-      let add_local m (t, n) = match t with
-          A.PrimitiveType(_) ->
-            let local_var = L.build_alloca (ltype_of_typ struct_decl_map t) n builder
-            in StringMap.add n (local_var, t) m
-        | A.StructType(s) ->
-            let struct_ptr = L.build_alloca (ltype_of_typ struct_decl_map t) n builder in
-            let struct_malloc = L.build_malloc (fst (StringMap.find s struct_decl_map)) (n ^ "_malloc") builder in
-            ignore (L.build_store struct_malloc struct_ptr builder);
-            StringMap.add n (struct_ptr, t) m
+      let add_local m (t, n) =
+        let local_var = L.build_alloca (ltype_of_typ struct_decl_map t) n builder in
+        ignore (L.build_store (init_var t) local_var builder);
+        StringMap.add n (local_var, t) m
       in
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
           (Array.to_list (L.params the_function)) in
-    (* produces a map name[string] --> stack pointer [llvalue] *)
+    (* produces a map name[string] --> llvalue *)
     List.fold_left add_local formals fdecl.A.locals in
 
     (* Return the llvalue for a variable or formal argument *)
-    let lookup_var n = try fst (StringMap.find n local_vars)
+    let lookup_llval n = try fst (StringMap.find n local_vars)
                    with Not_found -> fst (StringMap.find n global_vars)
     in
 
@@ -152,8 +166,8 @@ let translate program =
       try
         let typ = lookup_decl s_name in
         match typ with
-          A.PrimitiveType(_) -> raise Not_found
-        | A.StructType(s) -> snd (StringMap.find s struct_decl_map)
+          A.StructType(s) -> snd (StringMap.find s struct_decl_map)
+        | _ -> raise Not_found
       with Not_found -> raise (Failure (s_name ^ " not declared"))
     in
 
@@ -198,24 +212,48 @@ let translate program =
       | A.StringLit s -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup_var s) s builder
+      | A.Id s -> L.build_load (lookup_llval s) s builder
+      | A.MakeArray(typ, e) ->
+        let llname = "make_array"
+        and size = expr builder e
+        and element_t = ltype_of_typ struct_decl_map typ in
+        L.build_array_malloc element_t size llname builder
+      | A.MakeStruct(typ) ->
+        let llname = "make_struct"
+        and struct_t = L.element_type (ltype_of_typ struct_decl_map typ) in
+        L.build_malloc struct_t llname builder
+      | A.ArrayAccess (arr_name, idx_expr) ->
+        let idx = expr builder idx_expr in
+        let llname = arr_name ^ "[" ^ L.string_of_llvalue idx ^ "]" in
+        let arr_ptr = lookup_llval arr_name in
+        let arr_ptr_load = L.build_load arr_ptr arr_name builder in
+        let arr_gep = L.build_in_bounds_gep arr_ptr_load [|idx|] llname builder in
+        L.build_load arr_gep (llname ^ "_load") builder
+      | A.ArrayAssign (arr_name, idx_expr, val_expr) ->
+        let idx = (expr builder idx_expr)
+        and assign_val = (expr builder val_expr) in
+        let llname = arr_name ^ "[" ^ L.string_of_llvalue idx ^ "]" in
+        let arr_ptr = lookup_llval arr_name in
+        let arr_ptr_load = L.build_load arr_ptr arr_name builder in
+        let arr_gep = L.build_in_bounds_gep arr_ptr_load [|idx|] llname builder in
+        ignore (L.build_store assign_val arr_gep builder); assign_val
       | A.StructAccess (s_name, member) ->
-        let struct_ptr = lookup_var s_name
+        let struct_ptr = lookup_llval s_name
         and llname = (s_name ^ "." ^ member)
         and struct_decl = get_struct_decl s_name in
-        let struct_malloc = L.build_load struct_ptr ("struct."^s_name) builder in
+        let struct_ptr_load = L.build_load struct_ptr ("struct."^s_name) builder in
         let struct_gep =
-          L.build_struct_gep struct_malloc (U.get_struct_member_idx struct_decl member)
+          L.build_struct_gep struct_ptr_load (U.get_struct_member_idx struct_decl member)
           llname builder in
-        L.build_load struct_gep llname builder
+        L.build_load struct_gep (llname ^ "_load") builder
       | A.StructAssign (s_name, member, e) ->
           let e' = expr builder e
-          and struct_ptr = lookup_var s_name
+          and struct_ptr = lookup_llval s_name
           and llname = (s_name ^ "." ^ member)
           and struct_decl = get_struct_decl s_name in
-          let struct_malloc = L.build_load struct_ptr ("struct."^s_name) builder in
+          let struct_ptr_load = L.build_load struct_ptr ("struct."^s_name) builder in
           let struct_gep =
-            L.build_struct_gep struct_malloc (U.get_struct_member_idx struct_decl member)
+            L.build_struct_gep struct_ptr_load (U.get_struct_member_idx struct_decl member)
             llname builder in
           ignore (L.build_store e' struct_gep builder); e'
       | A.Binop (e1, op, e2) ->
@@ -242,9 +280,9 @@ let translate program =
           | A.Not     -> L.build_not
           | _         -> L.build_not (* TODO: this is just a placeholder. transpose not implemented *)
          ) e' "tmp" builder
-      | A.Assign (s, e) ->
+      | A.Assign (s, e) -> (* TODO: test struct/array pointer reassign *)
             let e' = expr builder e in
-            ignore (L.build_store e' (lookup_var s) builder); e'
+            ignore (L.build_store e' (lookup_llval s) builder); e'
       | A.Call ("printf", act) ->
          let actuals = List.map (expr builder) act in
   	     L.build_call
