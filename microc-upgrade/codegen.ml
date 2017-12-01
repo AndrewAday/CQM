@@ -49,7 +49,11 @@ let translate program =
   let rec ltype_of_typ struct_decl_map = function
       A.PrimitiveType(primitive) -> ltype_of_primitive_type(primitive)
     | A.StructType(s) -> L.pointer_type (fst (StringMap.find s struct_decl_map))
-    | A.ArrayType(typ) -> L.pointer_type (ltype_of_typ struct_decl_map typ)
+    | A.ArrayType(typ) ->
+        if (U.match_struct typ || U.match_array typ)
+        then ltype_of_typ struct_decl_map typ  (* already a pointer, don't cast *)
+        else L.pointer_type (ltype_of_typ struct_decl_map typ)
+
   in
 (* ========================================================================== *)
   (* Collect struct declarations. Builds a map struct_name[string] -> (lltype, A.struct_decl)  *)
@@ -157,14 +161,15 @@ let translate program =
                    with Not_found -> fst (StringMap.find n global_vars)
     in
 
-    let lookup_decl n = try snd (StringMap.find n local_vars)
+    (* returns the A.typ for a var *)
+    let lookup_typ n = try snd (StringMap.find n local_vars)
                    with Not_found -> snd (StringMap.find n global_vars)
     in
 
     (* TODO: fail test trying to access a member of an undeclared struct *)
     let get_struct_decl s_name =
       try
-        let typ = lookup_decl s_name in
+        let typ = lookup_typ s_name in
         match typ with
           A.StructType(s) -> snd (StringMap.find s struct_decl_map)
         | _ -> raise Not_found
@@ -216,7 +221,11 @@ let translate program =
       | A.MakeArray(typ, e) ->
         let llname = "make_array"
         and size = expr builder e
-        and element_t = ltype_of_typ struct_decl_map typ in
+        and element_t =
+          if U.match_struct typ
+          then L.element_type (ltype_of_typ struct_decl_map typ)
+          else ltype_of_typ struct_decl_map typ
+        in
         L.build_array_malloc element_t size llname builder
       | A.MakeStruct(typ) ->
         let llname = "make_struct"
@@ -228,7 +237,10 @@ let translate program =
         let arr_ptr = lookup_llval arr_name in
         let arr_ptr_load = L.build_load arr_ptr arr_name builder in
         let arr_gep = L.build_in_bounds_gep arr_ptr_load [|idx|] llname builder in
-        L.build_load arr_gep (llname ^ "_load") builder
+        let arr_typ = U.get_array_type (lookup_typ arr_name) in
+        (* If it's a pointer type, i.e. struct/array don't load *)
+        if U.match_struct arr_typ || U.match_array arr_typ then arr_gep
+        else L.build_load arr_gep (llname ^ "_load") builder
       | A.ArrayAssign (arr_name, idx_expr, val_expr) ->
         let idx = (expr builder idx_expr)
         and assign_val = (expr builder val_expr) in
