@@ -35,7 +35,9 @@ let translate program =
   and i1_t   = L.i1_type   context
   and void_t = L.void_type context in
 
-  let string_t = L.pointer_type i8_t in
+  let string_t = L.pointer_type i8_t
+  and i32_ptr_t = L.pointer_type i32_t
+  and i8_ptr_t = L.pointer_type i8_t in
 
   let ltype_of_primitive_type = function
       A.Int -> i32_t
@@ -210,6 +212,57 @@ let translate program =
 
     (* ==================================================================== *)
 
+    (* ========================= Array Constructors ========================= *)
+    (*
+      Whenever an array is made, we malloc and additional 16 bytes of metadata,
+      which contains size and length information. This allows us to implement
+      len() in a static context, and opens several possibilities including
+      array concatenation, dynamic array resizing, etc.
+      The layout will be:
+      +--------------+----------+--------+
+      | size (bytes) | len[int] | elem1  | ...
+      +--------------+----------+--------+
+    *)
+
+    let size_offset = L.const_int i32_t (-2)
+    and len_offset = L.const_int i32_t (-1)
+    and metadata_sz = L.const_int i32_t 8 in  (* 8 bytes overhead *)
+
+    let put_meta body_ptr offset llval builder =
+      let ptr = L.build_bitcast body_ptr i32_ptr_t "i32_ptr_t" builder in
+      let meta_ptr = L.build_gep ptr [| offset |] "meta_ptr" builder in
+      L.build_store llval meta_ptr builder
+    in
+
+    let get_meta body_ptr offset builder =
+      let ptr = L.build_bitcast body_ptr i32_ptr_t "i32_ptr_t" builder in
+      let meta_ptr = L.build_gep ptr [| offset |] "meta_ptr" builder in
+      L.build_load meta_ptr "meta_data" builder
+    in
+
+    let meta_to_body meta_ptr builder =
+      let ptr = L.build_bitcast meta_ptr i8_ptr_t "meta_ptr" builder in
+      L.build_gep ptr [| (L.const_int i8_t (8)) |] "body_ptr" builder
+    in
+
+    let body_to_meta body_ptr builder =
+      let ptr = L.build_bitcast body_ptr i8_ptr_t "body_ptr" builder in
+      L.build_gep ptr [| (L.const_int i8_t (-8)) |] "meta_ptr" builder
+    in
+
+    let make_array element_t len builder =
+      let element_sz = L.build_bitcast (L.size_of element_t) i32_t "b" builder in
+      let body_sz = L.build_mul element_sz len "body_sz" builder in
+      let malloc_sz = L.build_add body_sz metadata_sz "make_array_sz" builder in
+      let meta_ptr = L.build_array_malloc i8_t malloc_sz "make_array" builder in
+      let body_ptr = meta_to_body meta_ptr builder in
+      ignore (put_meta body_ptr size_offset malloc_sz builder);
+      ignore (put_meta body_ptr len_offset len builder);
+      L.build_bitcast body_ptr (L.pointer_type element_t) "make_array_ptr" builder
+    in
+
+    (* ==================================================================== *)
+
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
         A.IntLit i -> L.const_int i32_t i
@@ -219,14 +272,13 @@ let translate program =
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup_llval s) s builder
       | A.MakeArray(typ, e) ->
-        let llname = "make_array"
-        and size = expr builder e
+        let len = expr builder e
         and element_t =
-          if U.match_struct typ
+          if U.match_struct typ || U.match_array typ
           then L.element_type (ltype_of_typ struct_decl_map typ)
           else ltype_of_typ struct_decl_map typ
         in
-        L.build_array_malloc element_t size llname builder
+        make_array element_t len builder
       | A.MakeStruct(typ) ->
         let llname = "make_struct"
         and struct_t = L.element_type (ltype_of_typ struct_decl_map typ) in
@@ -302,7 +354,18 @@ let translate program =
             (Array.of_list actuals)
             "printf"
             builder
-      | A.Call (f_name, act) -> (* TODO: passing struct as pointer argument in fn *)
+  (*============================= built in fns ===============================*)
+      | A.Call("len", [e]) ->
+        let arr_ptr = expr builder e in
+        let is_null = L.build_is_null arr_ptr "null" builder in
+        L.build_select
+          is_null
+          (L.const_int i32_t 0)
+          (get_meta arr_ptr len_offset builder)
+          "len"
+          builder
+  (*==========================================================================*)
+      | A.Call (f_name, act) ->
          (* we double reverse here for historic reasons. should we undo?
             Need to specify the order we eval fn arguments in LRM
          *)

@@ -37,7 +37,7 @@ let check program =
                       StringMap.empty structs in
 
 (*=========================== Checking Functions =============================*)
-  let built_in_keywords = Array.to_list [| "make"; "new"; |] in
+  let built_in_keywords = Array.to_list [| "make"; "len"; "free"; "size"; |] in
 
   List.iter (fun fname ->
     if List.mem fname (List.map (fun fd -> fd.fname) functions)
@@ -212,6 +212,12 @@ let check program =
         check_assign lt rt ex
         (* TODO: add rules for struct and array assign *)
       | Call("printf", _) -> PrimitiveType(Int)
+  (*============================= built in fns ===============================*)
+      | Call("len", [e]) ->
+        let t = expr e in
+        if match_array t then PrimitiveType(Int)
+        else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to len, must be array"))
+  (*==========================================================================*)
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
