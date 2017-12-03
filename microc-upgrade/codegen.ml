@@ -32,6 +32,8 @@ let translate (globals, functions) =
 
   let string_t  = L.pointer_type i8_t
   and fmatrix_t = L.pointer_type i32_t in
+  (* Temporary tuple until implementation *)
+  (* and tuple_t   = L.void_type context in *)
 
   let ltype_of_typ = function
       A.Int     -> i32_t
@@ -40,7 +42,8 @@ let translate (globals, functions) =
     | A.Bool    -> i1_t
     | A.Void    -> void_t
     | A.Fmatrix -> fmatrix_t
-    | A.Imatrix -> fmatrix_t in 
+    | A.Imatrix -> fmatrix_t in
+    (* | A.Tuple   -> tuple_t in *)
   (* ========================================================= *)
 
   (* Declare each global variable; remember its value in a map *)
@@ -54,6 +57,8 @@ let translate (globals, functions) =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
+  let init_fmat_literal_t = L.var_arg_function_type fmatrix_t [| L.pointer_type float_t; i32_t; i32_t; |] in
+  let init_fmat_literal_func = L.declare_function "init_fmat_literal" init_fmat_literal_t the_module in
   (*
   Define each function (arguments and return type) so we can call it
   Builds a map fname [string] -> ([llvalue], [Ast.func_decl])
@@ -82,7 +87,7 @@ let translate (globals, functions) =
     List.fold_left function_decl StringMap.empty local_functions in
 
   (* call an externally defined function by name and arguments *)
-  let build_external fname actuals the_builder = 
+  let build_external fname actuals the_builder =
     let (fdef, fdecl) = (try StringMap.find fname extern_decls with
       Not_found -> raise(Failure("Not defined: " ^ fname ))) in
     let result = (match fdecl.A.typ with A.Void -> "" | _ -> fname ^ "_res") in
@@ -151,28 +156,35 @@ let translate (globals, functions) =
     | _         -> raise Not_found
     in
 
+    let bool_ops = function
+      A.And     -> L.build_and
+    | A.Or      -> L.build_or
+    | _         -> raise Not_found
+    in
+
     let matrix_matrix_ops = function
-      A.Add     ->  "mmadd"
-    | A.Sub     ->  "mmsub"
-    | A.Mult    ->  "mmmult"
-    | A.Div     ->  "mmdiv"
+      A.Add     ->  "mm_add"
+    | A.Sub     ->  "mm_sub"
+    | A.Mult    ->  "mm_mult"
+    | A.Div     ->  "mm_div"
     | A.Dot     ->  "dot"
     | _         -> raise Not_found
     in
 
     let scalar_matrix_ops = function
-      A.Add     ->  "smadd"
-    | A.Sub     ->  "smsub"
-    | A.Mult    ->  "smmult"
-    | A.Div     ->  "smdiv"
-    | A.Equal   ->  "smeq"
-    | A.Neq     ->  "smneq"
-    | A.Less    ->  "smlt"
-    | A.Leq     ->  "smleq"
-    | A.Greater ->  "smgt"
-    | A.Geq     ->  "smgeq"
+      A.Add     ->  "sm_add"
+    | A.Sub     ->  "sm_sub"
+    | A.Mult    ->  "sm_mult"
+    | A.Div     ->  "sm_div"
+    | A.Equal   ->  "sm_eq"
+    | A.Neq     ->  "sm_neq"
+    | A.Less    ->  "sm_lt"
+    | A.Leq     ->  "sm_leq"
+    | A.Greater ->  "sm_gt"
+    | A.Geq     ->  "sm_geq"
     | _         -> raise Not_found
     in
+
 
 
     (* ==================================================================== *)
@@ -183,18 +195,23 @@ let translate (globals, functions) =
       | A.FloatLit f          -> L.const_float float_t f
       | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
+      (* | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
+                                 let m = Array.concat (List.map ravel a)
+                                   and r = List.length a and c = List.length (List.hd a) in
+                                 (L.build_call init_fmat_literal_func [|m; r; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
       | A.Id s                -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2)  ->
           let e1' = expr builder e1 and e2' = expr builder e2 in
           let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
-          let l_typs = (l_typ1, l_typ2) in 
+          let l_typs = (l_typ1, l_typ2) in
           (
             if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
             else if l_typs = (float_t, float_t) then (float_ops op e1' e2' "tmp" builder)
             else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
+            else if l_typs = (i1_t, i1_t) then (bool_ops op e1' e2' "tmp" builder)
             else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
-                             (build_external (scalar_matrix_ops op) [|e2'; e1'|] builder)
+                             (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
             else if l_typ2 = fmatrix_t && (l_typ1 = i32_t || l_typ1 = float_t) then
                              (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
             else raise (Failure ((A.string_of_op op) ^ " not defined for " ^
@@ -204,32 +221,19 @@ let translate (globals, functions) =
                                  )
                           )
           )
-(*           match l_typs with
-
-          | _ when l_typs = (fmatrix_t, fmatrix_t)          -> float_ops e1' e2' "tmp" builder
-          | _ when l_typs = (int_t, int_t)                  -> int_ops op e1' e2' "tmp" builder
-          | _ when l_typs = ((float_t | int_t), fmatrix_t)  -> build_external (scalar_matrix_ops op) [| e1' ; e2'|] builder
-          | _ when l_typs = (fmatrix_t, (float_t | int_t))  -> build_external (scalar_matrix_ops op) [| e2' ; e1'|] builder
-          | _ -> raise (Failure ((A.string_of_op op) ^ " not defined for " ^
-                                 (L.string_of_lltype l_typ1) ^ " and " ^
-                                 (L.string_of_lltype l_typ2) ^ " in " ^
-                                 (A.string_of_expr e2)
-                               )
-                        )
- *)
 
       | A.Unop(op, e) ->
 	       let e' = expr builder e in
          let l_typ = L.type_of e' in
           (match op with
-	          A.Neg          -> 
+	          A.Neg          ->
               if      l_typ = float_t then L.build_fneg e' "tmp" builder
               else if l_typ = fmatrix_t then build_external "negate" [| e' |] builder
               else    L.build_neg e' "tmp" builder
           | A.Not          -> L.build_not e' "tmp" builder
           | A.Transpose    -> build_external "transpose" [| e' |] builder
-          ) 
-      
+          )
+
       | A.Assign (s, e) ->
             let e' = expr builder e in
             ignore (L.build_store e' (lookup s) builder); e'
@@ -252,7 +256,7 @@ let translate (globals, functions) =
            let (fdef, fdecl) = StringMap.find f function_decls in
            let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
            L.build_call fdef (Array.of_list actuals) result_name builder
-         else 
+         else
            let (fdef, fdecl) = StringMap.find f extern_decls in
            let result_name = (match fdecl.A.typ with A.Void -> "" | _ -> f ^ "_result") in
            L.build_call fdef (Array.of_list actuals) result_name builder

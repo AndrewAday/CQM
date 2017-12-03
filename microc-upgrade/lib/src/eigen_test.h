@@ -17,6 +17,7 @@ int cols(matrix_t);
 matrix_t init_fmat_zero(int, int);
 matrix_t init_fmat_const(double, int, int);
 matrix_t init_fmat_identity(int, int);
+matrix_t init_fmat_literal(double *, int, int);
 
 matrix_t copy(matrix_t);
 
@@ -25,18 +26,18 @@ void del_mat(matrix_t);
 /* =============== Binary Operations =============== */
 
 // Matrix-Matrix operations
-matrix_t mmadd(matrix_t, matrix_t);
-matrix_t mmsub(matrix_t, matrix_t);
-matrix_t mmmult(matrix_t, matrix_t);
-matrix_t mmdiv(matrix_t, matrix_t);
+matrix_t mm_add(matrix_t, matrix_t);
+matrix_t mm_sub(matrix_t, matrix_t);
+matrix_t mm_mult(matrix_t, matrix_t);
+matrix_t mm_div(matrix_t, matrix_t);
 matrix_t dot(matrix_t, matrix_t);
 
 // Scalar-Matrix operations
-matrix_t smadd(double, matrix_t);
-matrix_t smsub(double, matrix_t);
-matrix_t smmult(double, matrix_t);
-matrix_t smdiv(double, matrix_t);
-matrix_t smeq(double, matrix_t);
+matrix_t sm_add(matrix_t, double);
+matrix_t sm_sub(matrix_t, double, int);
+matrix_t sm_mult(matrix_t, double);
+matrix_t sm_div(matrix_t, double, int);
+matrix_t smeq(matrix_t, double);
 
 /* =============== Matrix Unary Operations =============== */
 matrix_t transpose(matrix_t);

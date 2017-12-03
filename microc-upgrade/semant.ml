@@ -85,7 +85,7 @@ let check (globals, functions) =
       try StringMap.find s symbols
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
-
+(*
     (* ========================= Binary Operators ========================= *)
 
     let check_default_ops t1 t2 = function
@@ -109,6 +109,9 @@ let check (globals, functions) =
     | _ -> raise Not_found
     in
 
+    let check_matrix_ops t1 t2 = function *)
+
+
     (* ==================================================================== *)
 
     (* Return the type of an expression or throw an exception *)
@@ -121,21 +124,38 @@ let check (globals, functions) =
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
          let typ =
-           try
-             (match t1 with
-               _ when t1 = Float -> check_float_ops t1 t2 op
-             | _ when t1 = String -> check_string_ops t1 t2 op
-             | _ -> check_default_ops t1 t2 op
-             )
-           with Not_found -> raise (Failure ("illegal binary operator " ^
-                                  string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-                                  string_of_typ t2 ^ " in " ^ string_of_expr e))
+         try
+           (match op with
+              Add | Sub | Mult | Div when (t1 = t2) &&
+                (t1 = Int || t1 = Float || t1 = String || t1 = Imatrix || t1 = Fmatrix) -> t1
+            | Dot when (t1 = t2) && (t1 = Imatrix || t2 = Fmatrix) -> t1
+            (* Is it possible here to cast int scalar types into double to prevent
+            a compiler error later on? *)
+            | Add | Sub | Mult | Div when (t1 = Fmatrix || t1 = Imatrix) && (t2 = Float) -> t1
+            | Add | Sub | Mult | Div when (t1 = Float) && (t2 = Fmatrix || t2 = Imatrix) -> t2
+            | Equal | Neq when (t1 = t2) ->
+              let check_eq_typ = function
+                | (Imatrix | Fmatrix)  -> Imatrix
+                | (Float | Int | Bool) -> Bool
+                | _                    -> raise Not_found
+              in check_eq_typ t1
+
+            | Less | Leq | Greater | Geq when (t1 = t2) && (t1 = Float || t1 = Int) -> Bool
+            | And | Or when (t1 = t2) && (t1 = Bool) -> Bool
+
+            | _ -> raise Not_found
+              (* TODO: Need to figure out return type of a boolean matrix... is that just an Imatrix?? *)
+            )
+            with Not_found -> raise (Failure ("Illegal binary operator " ^
+                                string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                string_of_typ t2 ^ " in " ^ string_of_expr e))
          in typ
       | Unop(op, e) as ex -> let t = expr e in
       	 (match op with
-      	   Neg when t = Int -> Int
-         | Neg when t = Float -> Float
-      	 | Not when t = Bool -> Bool
+      	    Neg when (t != String && t != Bool) -> t
+          | Not when t = Bool -> t
+          | Transpose when (t = Fmatrix || t = Imatrix) -> t
+
          | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
       	  		                 string_of_typ t ^ " in " ^ string_of_expr ex))
          )
@@ -164,12 +184,12 @@ let check (globals, functions) =
 
     (* Verify a statement or throw an exception *)
     let rec stmt = function
-	Block sl -> let rec check_block = function
-           [Return _ as s] -> stmt s
-         | Return _ :: _ -> raise (Failure "nothing may follow a return")
-         | Block sl :: ss -> check_block (sl @ ss)
-         | s :: ss -> stmt s ; check_block ss
-         | [] -> ()
+        Block sl -> let rec check_block = function
+            [Return _ as s] -> stmt s
+          | Return _ :: _ -> raise (Failure "nothing may follow a return")
+          | Block sl :: ss -> check_block (sl @ ss)
+          | s :: ss -> stmt s ; check_block ss
+          | [] -> ()
         in check_block sl
       | Expr e -> ignore (expr e)
       | Return e -> let t = expr e in if t = func.typ then () else

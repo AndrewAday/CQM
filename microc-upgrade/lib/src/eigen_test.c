@@ -5,7 +5,7 @@ int main(){
 	matrix_t tmp2 = init_fmat_const(1, 4, 4);
 	matrix_t tmp3 = init_fmat_const(2, 4, 4);
 
-	matrix_t tmp4 = mmadd(tmp2, tmp3);
+	matrix_t tmp4 = mm_add(tmp2, tmp3);
 	matrix_t tmp5 = dot(tmp2, tmp3);
 
 	print_mat(tmp);
@@ -23,4 +23,3 @@ int main(){
 
 
 }
-

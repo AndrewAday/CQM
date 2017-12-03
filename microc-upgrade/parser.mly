@@ -2,6 +2,7 @@
 
 %{
 open Ast
+
 %}
 
 
@@ -27,7 +28,7 @@ open Ast
 %left LT GT LEQ GEQ
 %left SLICE
 %left PLUS MINUS
-%left TIMES DIVIDE MOD MATMUL
+%left TIMES DIVIDE MOD DOT
 %left POW
 %right NOT NEG
 %left MATTRANS
@@ -47,19 +48,19 @@ decls:
 
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
-     { { typ         = $1;
-      	 fname       = $2;
-      	 formals     = $4;
-      	 locals      = List.rev $7;
-         body        = List.rev $8;
-         location    = Local; } }
+      { { typ         = $1;
+      	  fname       = $2;
+      	  formals     = $4;
+      	  locals      = List.rev $7;
+          body        = List.rev $8;
+          location    = Local; } }
  | EXTERN typ ID LPAREN formals_opt RPAREN SEMI
-    { { typ         = $2;
-        fname       = $3;
-        formals     = $5;
-        locals      = [];
-        body        = [];
-        location    = External; } }
+      { { typ         = $2;
+          fname       = $3;
+          formals     = $5;
+          locals      = [];
+          body        = [];
+          location    = External; } }
 
 formals_opt:
     /* nothing */ { [] }
@@ -131,18 +132,18 @@ expr:
 
   | expr DOT expr { Binop($1, Dot, $3)}
   | expr MATTRANS       { Unop(Transpose, $1) }
-  | LBRACK rows SEMI RBRACK                      { MatLit(List.rev $2) }
-  | LBRACK actuals_opt RBRACK                    { TupLit($2) }
-  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { Matassign(Id($1),$3,$5,$8)}
-  | ID LBRACK expr COMMA expr RBRACK             { Matselect(Id($1),$3,$5) }
-  | ID LBRACK expr RBRACK ASSIGN expr            { Tupassign(Id($1),$3,$6) }
-  | ID LBRACK expr RBRACK                        { Tupselect(Id($1),$3) }
-  | expr SLICE expr SLICE expr                   { Slice($1,$3,$5) }
+  /*| LBRACK rows RBRACK                      { MatLit(List.rev $2) }*/
+/*  | LBRACK actuals_opt RBRACK                    { TupLit($2) } */
+/*  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { Matassign(Id($1),$3,$5,$8)} */
+/*  | ID LBRACK expr COMMA expr RBRACK             { Matselect(Id($1),$3,$5) } */
+/*  | ID LBRACK expr RBRACK ASSIGN expr            { Tupassign(Id($1),$3,$6) } */
+/*  | ID LBRACK expr RBRACK                        { Tupselect(Id($1),$3) } */
+/*  | expr SLICE expr SLICE expr                   { Slice($1,$3,$5) } */
 
   | MINUS expr %prec NEG  { Unop(Neg, $2) }
   | NOT expr              { Unop(Not, $2) }
   | ID ASSIGN expr        { Assign($1, $3) }
-  | expr PIPE expr        { Pipe($1, $3) }
+/*  | expr PIPE expr        { Pipe($1, $3) } */
 
   | NEW typ LPAREN actuals_opt RPAREN             { Call(string_of_typ $2, $4) }
   | ID LPAREN actuals_opt RPAREN                  { Call($1, $3) }
@@ -156,6 +157,6 @@ actuals_list:
     expr                    { [$1] }
   | actuals_list COMMA expr { $3 :: $1 }
 
-rows:
+ rows:
     actuals_opt             { [$1] }
-  | rows SEMI actuals_opt   { $3 :: $1 }
+  | rows COMMA actuals_opt   { $3 :: $1 }

@@ -16,18 +16,18 @@ type expr =
   | FloatLit of float
   | StringLit of string
   | BoolLit of bool
-  | TupLit of expr list
+(*   | TupLit of expr list *)
   | MatLit of expr list list
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Assign of string * expr
-  | Pipe of expr * expr
+(*   | Pipe of expr * expr
   | Slice of expr * expr *expr
   | Tupselect of expr * expr
   | Tupassign of expr * expr * expr
   | Matselect of expr * expr * expr
-  | Matassign of expr * expr * expr * expr
+  | Matassign of expr * expr * expr * expr *)
   | Call of string * expr list
   | Noexpr
 
@@ -81,13 +81,13 @@ let rec string_of_expr = function
   | BoolLit(true)             -> "true"
   | BoolLit(false)            -> "false"
   | Id(s)                     -> s
-  | Binop(e1, o, e2)          -> 
+  | Binop(e1, o, e2)          ->
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
 
   | Unop(o, e)                -> string_of_uop o ^ string_of_expr e
   | Assign(v, e)              -> v ^ " = " ^ string_of_expr e
-  | Pipe(v, e)                -> string_of_expr v ^ " => " ^ string_of_expr e
-  | Slice(b, s, e)            -> 
+(*   | Pipe(v, e)                -> string_of_expr v ^ " => " ^ string_of_expr e
+  | Slice(b, s, e)            ->
       string_of_expr b ^ ":" ^ string_of_expr s ^ ":" ^ string_of_expr e
 
   | Tupselect(v, e)           -> string_of_expr v ^ "[" ^ string_of_expr e ^ "]"
@@ -99,12 +99,12 @@ let rec string_of_expr = function
 
   | Matassign(v, e1, e2, x)   -> string_of_expr v ^ "[" ^ string_of_expr e1 ^
       ", " ^ string_of_expr e2 ^ "] = " ^ string_of_expr x
- 
-  | TupLit(el)                -> 
-      "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
-  
-  | MatLit(el)                -> "[" ^ String.concat "; " (List.map (fun e ->
-      String.concat ", " (List.map string_of_expr e)) el) ^ ";]"
+
+  | TupLit(el)                ->
+      "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]" *)
+
+  | MatLit(el)                -> "[" ^ String.concat ", "  ((List.map (fun e ->
+      String.concat ", " (List.map string_of_expr e)) el)) ^ "]"
 
   | Call(f, el)               ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
@@ -141,8 +141,8 @@ let string_of_vdecl (t, id) = string_of_typ t ^ " " ^ id ^ ";\n"
 
 let string_of_fdecl fdecl = match fdecl.location with
     Local -> string_of_typ fdecl.typ ^ " " ^
-      fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^ 
-      ")\n{\n" ^ String.concat "" (List.map string_of_vdecl fdecl.locals) ^ 
+      fdecl.fname ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
+      ")\n{\n" ^ String.concat "" (List.map string_of_vdecl fdecl.locals) ^
       String.concat "" (List.map string_of_stmt fdecl.body) ^ "}\n"
   | External -> "extern" ^ string_of_typ fdecl.typ ^ " " ^ fdecl.fname ^
       "(" ^ String.concat ", " (List.map snd fdecl.formals) ^ ");\n"

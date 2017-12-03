@@ -45,6 +45,11 @@ MatrixXd* init_fmat(const int d1, const int d2, const double c, const int op_id)
 matrix_t init_fmat_zero(const int d1, const int d2)						{return init_fmat(d1, d2, -1, 0);}
 matrix_t init_fmat_const(const double c, const int d1, const int d2)	{return init_fmat(d1, d2, c, 1);}
 matrix_t init_fmat_identity(const int d1, const int d2)					{return init_fmat(d1, d2, -1, 2);}
+matrix_t init_fmat_literal(double * arr, const int d1, const int d2)	  {
+		MatrixXd* tmp_mptr = new MatrixXd;
+		(*tmp_mptr) = Map<MatrixXd>(arr, d1, d2);
+		return tmp_mptr;
+}
 
 matrix_t copy(matrix_t undef_mptr){
 	MatrixXd* tmp_mptr = new MatrixXd;
@@ -86,12 +91,13 @@ MatrixXd* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, double s
 		case 5: *tmp_mptr = (*def_mptr1).array() + scalar; break;
 		// scalar matrix subtraction
 		case 6: *tmp_mptr = (*def_mptr1).array() - scalar; break;
+		case 7: *tmp_mptr = scalar - (*def_mptr1).array(); break;
 		// scalar matrix multiplication
-		case 7: *tmp_mptr = *def_mptr1 * scalar; break;
+		case 8: *tmp_mptr = *def_mptr1 * scalar; break;
 		// sclar matrix division
-		case 8: *tmp_mptr = *def_mptr1 / scalar; break;
-		// case 9: *tmp_mptr = (*def_mptr1).array() == scalar; break;
-	}	
+		case 9: *tmp_mptr = *def_mptr1 / scalar; break;
+		case 10: *tmp_mptr = scalar  * (*def_mptr2).cwiseInverse(); break;
+	}
 
 	return tmp_mptr;
 }
@@ -105,16 +111,21 @@ MatrixXd* binary_operations(matrix_t undef_mptr, double scalar, int op_id){
 	return binary_operations(undef_mptr, &tmp_m, scalar, op_id);
 }
 
-matrix_t mmadd(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 0); }
-matrix_t mmsub(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 1); }
-matrix_t mmmult(matrix_t undef_mptr1, matrix_t undef_mptr2) { return binary_operations(undef_mptr1, undef_mptr2, 2); }
-matrix_t mmdiv(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 3); }
-matrix_t dot(matrix_t undef_mptr1, matrix_t undef_mptr2)	{ return binary_operations(undef_mptr1, undef_mptr2, 4); } 
+matrix_t mm_add(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 0); }
+matrix_t mm_sub(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 1); }
+matrix_t mm_mult(matrix_t undef_mptr1, matrix_t undef_mptr2) { return binary_operations(undef_mptr1, undef_mptr2, 2); }
+matrix_t mm_div(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 3); }
+matrix_t dot(matrix_t undef_mptr1, matrix_t undef_mptr2)		 { return binary_operations(undef_mptr1, undef_mptr2, 4); }
 
-matrix_t smadd(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 5); }
-matrix_t smsub(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 6); }
-matrix_t smmult(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 7); }
-matrix_t smdiv(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, s, 8); }
+matrix_t sm_add(matrix_t undef_mptr, double s)					{ return binary_operations(undef_mptr, s, 5); }
+matrix_t sm_sub(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 6) :
+																	   																	 binary_operations(undef_mptr, s, 7) ; }
+matrix_t sm_mult(matrix_t undef_mptr, double s)					{ return binary_operations(undef_mptr, s, 8); }
+matrix_t sm_div(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 9) :
+																	   																	 binary_operations(undef_mptr, s, 10) ; }
+
+
+
 // matrix_t smeq(double s, matrix_t undef_mptr)	{ return binary_operations(undef_mptr, MatrixXd* tmp, s, 9); }
 
 /* ============================= Matrix Unary Operations Operations =============================== */
@@ -128,6 +139,5 @@ matrix_t transpose(matrix_t undef_mptr){
 }
 
 matrix_t negate(matrix_t undef_mptr){
-	return smmult(-1, undef_mptr);
+	return sm_mult(undef_mptr, -1);
 }
-
