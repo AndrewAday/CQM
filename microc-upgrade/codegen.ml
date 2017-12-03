@@ -245,10 +245,10 @@ let translate program =
       L.build_gep ptr [| (L.const_int i8_t (8)) |] "body_ptr" builder
     in
 
-    let body_to_meta body_ptr builder =
+    (* let body_to_meta body_ptr builder =
       let ptr = L.build_bitcast body_ptr i8_ptr_t "body_ptr" builder in
       L.build_gep ptr [| (L.const_int i8_t (-8)) |] "meta_ptr" builder
-    in
+    in *)
 
     let make_array element_t len builder =
       let element_sz = L.build_bitcast (L.size_of element_t) i32_t "b" builder in
@@ -286,8 +286,14 @@ let translate program =
       | A.ArrayAccess (arr_name, idx_expr) ->
         let idx = expr builder idx_expr in
         let llname = arr_name ^ "[" ^ L.string_of_llvalue idx ^ "]" in
-        let arr_ptr = lookup_llval arr_name in
-        let arr_ptr_load = L.build_load arr_ptr arr_name builder in
+        let arr_ptr_load =
+          if U.is_struct_access arr_name
+            then  (* this is to handle foo.arr[1]  TODO: currently nonfunctional. parse ambiguity *)
+              let (s_name, member) = U.parse_struct_access arr_name in
+              expr builder (A.StructAccess(s_name, member))
+            else (* this is to handle normal arr[1] *)
+              let arr_ptr = lookup_llval arr_name in
+              L.build_load arr_ptr arr_name builder in
         let arr_gep = L.build_in_bounds_gep arr_ptr_load [|idx|] llname builder in
         let arr_typ = U.get_array_type (lookup_typ arr_name) in
         (* If it's a pointer type, i.e. struct/array don't load *)

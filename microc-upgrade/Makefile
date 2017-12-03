@@ -9,7 +9,7 @@ all : microc.native printbig.o
 
 .PHONY : microc.native
 microc.native :
-	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis -cflags -w,+a-4 \
+	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis,str -cflags -w,+a-4 \
 		microc.native
 
 # "make clean" removes all generated files
@@ -22,11 +22,10 @@ clean :
 	rm -rf *.cmx *.cmi *.cmo *.cmx *.o *.s *.ll *.out *.exe
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind to locate LLVM
-
 OBJS = ast.cmx codegen.cmx parser.cmx scanner.cmx semant.cmx microc.cmx util.cmx
 
 microc : $(OBJS)
-	ocamlfind ocamlopt -linkpkg -package llvm -package llvm.analysis $(OBJS) -o microc
+	ocamlfind ocamlopt -linkpkg -package llvm -package llvm.analysis -package str $(OBJS) $(XLIBS) -o microc
 
 scanner.ml : scanner.mll
 	ocamllex scanner.mll

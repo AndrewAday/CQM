@@ -196,6 +196,16 @@ let get_struct_member_idx struct_decl member =
   try find 0 struct_decl.members
   with Not_found -> raise (Failure (member ^ "not found in struct " ^ struct_decl.name))
 
+let is_struct_access s =
+  try
+    ignore (Str.search_forward (Str.regexp "[.]") s 0); true
+  with Not_found -> false
+
+let parse_struct_access s =
+  let l = Str.split (Str.regexp "[.]") s in
+  let a = Array.of_list l in
+  (a.(0), a.(1))
+
 (*============================== Array Checkers ============================= *)
 let check_array_or_throw typ a_name =
   if match_array typ then () else raise (Failure (a_name ^ " is not an array"))
@@ -211,3 +221,6 @@ let get_result_primitive_name f_name = function
 let get_result_name f_name = function
     PrimitiveType(t) -> get_result_primitive_name f_name t
   | _ -> f_name ^ "_result"
+
+
+(*================================== Misc==================================== *)
