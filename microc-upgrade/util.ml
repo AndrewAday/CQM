@@ -9,7 +9,6 @@ let string_of_primitive_type = function
     | String -> "string"
     | Tuple -> "tuple"
     | Imatrix -> "imatrix"
-    | Smatrix -> "smatrix"
     | Fmatrix -> "fmatrix"
 
 let rec string_of_typ = function
@@ -32,8 +31,7 @@ let string_of_op = function
   | Geq -> ">="
   | And -> "&&"
   | Or -> "||"
-  | Matmul -> ".."
-  | Matdotmul -> ".*"
+  | Dot -> ".."
 
 let string_of_uop = function
     Neg -> "-"
@@ -51,19 +49,19 @@ let rec string_of_expr = function
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> string_of_uop o ^ string_of_expr e
   | Assign(v, e) -> v ^ " = " ^ string_of_expr e
-  | Pipe(v, e) -> string_of_expr v ^ " => " ^ string_of_expr e
+  (* | Pipe(v, e) -> string_of_expr v ^ " => " ^ string_of_expr e
   | Slice(b, s, e) ->
       string_of_expr b ^ ":" ^ string_of_expr s ^ ":" ^ string_of_expr e
   | Tupselect(v, e) -> string_of_expr v ^ "[" ^ string_of_expr e ^ "]"
   | Tupassign(v, e, x) ->
-      string_of_expr v ^ "[" ^ string_of_expr e ^ "] = " ^ string_of_expr x
-  | Matselect(v, e1, e2) ->
+      string_of_expr v ^ "[" ^ string_of_expr e ^ "] = " ^ string_of_expr x *)
+  (* | Matselect(v, e1, e2) ->
       string_of_expr v ^ "[" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ "]"
   | Matassign(v, e1, e2, x) -> string_of_expr v ^ "[" ^ string_of_expr e1 ^
       ", " ^ string_of_expr e2 ^ "] = " ^ string_of_expr x
   | TupLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
   | MatLit(el) -> "[" ^ String.concat "; " (List.map (fun e ->
-      String.concat ", " (List.map string_of_expr e)) el) ^ ";]"
+      String.concat ", " (List.map string_of_expr e)) el) ^ ";]" *)
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
@@ -73,6 +71,7 @@ let rec string_of_expr = function
   | ArrayAssign(arr_name, e1, e2) -> arr_name ^ "[" ^ string_of_expr e1 ^ "]" ^ "=" ^ string_of_expr e2
   | MakeStruct(t) -> "make(" ^ string_of_typ t ^ ")"
   | MakeArray(t,e) -> "make(" ^ string_of_typ t ^ "," ^ string_of_expr e ^ ")"
+  | _ -> "UNKNOWN"
 
 let rec string_of_stmt = function
     Block(stmts) ->

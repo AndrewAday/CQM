@@ -20,6 +20,7 @@ let _ =
   let lexbuf = Lexing.from_channel !channel in
   let ast = Parser.program Scanner.token lexbuf in
   Semant.check ast;
+  (* ast; *)
   match !action with
     Ast -> print_string (Util.string_of_program ast)
   | LLVM_IR -> print_string (Llvm.string_of_llmodule (Codegen.translate ast))

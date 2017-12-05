@@ -20,6 +20,7 @@ CC="cc"
 MICROC="./microc.native"
 #MICROC="_build/microc.native"
 
+
 # Set time limit for all operations
 ulimit -t 30
 
@@ -94,7 +95,7 @@ Check() {
     generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
     Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
-    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" &&
+    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-L lib/src" "-leigentest" &&
     Run "./${basename}.exe" > "${basename}.out" &&
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 
@@ -171,6 +172,13 @@ then
     echo "Try \"make printbig.o\""
     exit 1
 fi
+
+# if [ ! -f ./lib/src/libeigentest.so ]
+# then
+#     echo "Could not find eigen lib"
+#     echo "Make sure libeigentest.so exists in ."
+#     exit 1
+# fi
 
 if [ $# -ge 1 ]
 then

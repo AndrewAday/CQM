@@ -11,6 +11,7 @@
 *.ll
 *.log
 *.s
+*.so
 
 # ocamlbuild working directory
 _build/

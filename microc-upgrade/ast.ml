@@ -1,7 +1,7 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or | Pow | Mod | Matmul | Matdotmul
+          And | Or | Pow | Mod | Dot
 
 type uop = Neg | Not | Transpose
 
@@ -10,7 +10,7 @@ type uop = Neg | Not | Transpose
 
 (* Types *)
 type primitive_type = Float | Int | Bool | Void | String |
-                      Tuple | Imatrix | Fmatrix | Smatrix
+                      Tuple | Imatrix | Fmatrix 
 type typ =
     PrimitiveType of primitive_type
   | StructType of string
@@ -26,18 +26,18 @@ type expr =
   | FloatLit of float
   | StringLit of string
   | BoolLit of bool
-  | TupLit of expr list
+(*   | TupLit of expr list *)
   | MatLit of expr list list
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Assign of string * expr
-  | Pipe of expr * expr
+(*   | Pipe of expr * expr
   | Slice of expr * expr *expr
   | Tupselect of expr * expr
   | Tupassign of expr * expr * expr
   | Matselect of expr * expr * expr
-  | Matassign of expr * expr * expr * expr
+  | Matassign of expr * expr * expr * expr *)
   | Call of string * expr list
   | StructAccess of (string * string)
   | StructAssign of (string * string * expr)

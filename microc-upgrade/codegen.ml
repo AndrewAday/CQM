@@ -37,7 +37,8 @@ let translate program =
 
   let string_t = L.pointer_type i8_t
   and i32_ptr_t = L.pointer_type i32_t
-  and i8_ptr_t = L.pointer_type i8_t in
+  and i8_ptr_t = L.pointer_type i8_t
+  and fmatrix_t = L.pointer_type i32_t in
 
   let ltype_of_primitive_type = function
       A.Int -> i32_t
@@ -45,6 +46,8 @@ let translate program =
     | A.String -> string_t
     | A.Bool -> i1_t
     | A.Void -> void_t
+    | A.Fmatrix -> fmatrix_t
+    | A.Imatrix -> fmatrix_t
     | _ -> void_t
   in
 
@@ -78,8 +81,9 @@ let translate program =
           A.Float -> L.const_float float_t 0.0
         | A.Bool -> L.const_int i1_t 0
         | A.String -> L.const_bitcast empty_string string_t
+        | A.Imatrix -> L.const_null fmatrix_t
+        | A.Fmatrix -> L.const_null fmatrix_t
         (* TODO: jayz, what are the default types here? *)
-        (* | A.Imatrix | A.Fmatrix | A.Smatrix *)
         | _ -> L.const_int i32_t 0
       )
     | A.StructType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
@@ -99,6 +103,9 @@ let translate program =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 (*============================================================================*)
+  (* TODO: jz matliteral *)
+  (* let init_fmat_literal_t = L.var_arg_function_type fmatrix_t [| L.pointer_type float_t; i32_t; i32_t; |] in
+  let init_fmat_literal_func = L.declare_function "init_fmat_literal" init_fmat_literal_t the_module in *)
 
   (*
   Define each function (arguments and return type) so we can call it
@@ -126,6 +133,16 @@ let translate program =
       let ftype = L.function_type (ltype_of_typ struct_decl_map fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty local_functions in
+
+  (* call an externally defined function by name and arguments *)
+  let build_external fname actuals the_builder =
+    let (fdef, fdecl) = (try StringMap.find fname extern_decls with
+      Not_found -> raise(Failure("Not defined: " ^ fname ))) in
+    let result = (match fdecl.A.typ with
+        A.PrimitiveType(t) when t = A.Void -> ""
+      | _ -> fname ^ "_res")
+    in
+    L.build_call fdef actuals result the_builder in
 
   (* Fill in the body of the given function *)
   (* TODO: need to make all structs default on heap. If initialized locally, put on heap.
@@ -180,7 +197,7 @@ let translate program =
 
     (* ========================= Binary Operators ========================= *)
 
-    let default_ops = function
+    let int_ops = function
       A.Add     -> L.build_add
     | A.Sub     -> L.build_sub
     | A.Mult    -> L.build_mul
@@ -207,8 +224,39 @@ let translate program =
     | A.Leq     -> L.build_fcmp L.Fcmp.Ule
     | A.Greater -> L.build_fcmp L.Fcmp.Ugt
     | A.Geq     -> L.build_fcmp L.Fcmp.Uge
-    | _ -> raise Not_found
+    | _         -> raise Not_found
     in
+
+    let bool_ops = function
+      A.And     -> L.build_and
+    | A.Or      -> L.build_or
+    | _         -> raise Not_found
+    in
+
+    let matrix_matrix_ops = function
+      A.Add     ->  "mm_add"
+    | A.Sub     ->  "mm_sub"
+    | A.Mult    ->  "mm_mult"
+    | A.Div     ->  "mm_div"
+    | A.Dot     ->  "dot"
+    | _         -> raise Not_found
+    in
+
+    let scalar_matrix_ops = function
+      A.Add     ->  "sm_add"
+    | A.Sub     ->  "sm_sub"
+    | A.Mult    ->  "sm_mult"
+    | A.Div     ->  "sm_div"
+    | A.Equal   ->  "sm_eq"
+    | A.Neq     ->  "sm_neq"
+    | A.Less    ->  "sm_lt"
+    | A.Leq     ->  "sm_leq"
+    | A.Greater ->  "sm_gt"
+    | A.Geq     ->  "sm_geq"
+    | _         -> raise Not_found
+    in
+
+
 
     (* ==================================================================== *)
 
@@ -265,12 +313,16 @@ let translate program =
 
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
-        A.IntLit i -> L.const_int i32_t i
-      | A.FloatLit f -> L.const_float float_t f
-      | A.StringLit s -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
-      | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
-      | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup_llval s) s builder
+        A.IntLit i            -> L.const_int i32_t i
+      | A.FloatLit f          -> L.const_float float_t f
+      | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
+      | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
+      (* | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
+                               let m = Array.concat (List.map ravel a)
+                                 and r = List.length a and c = List.length (List.hd a) in
+                               (L.build_call init_fmat_literal_func [|m; r; c;|] "m_lit" builder) *)
+      | A.Noexpr              -> L.const_int i32_t 0
+      | A.Id s                -> L.build_load (lookup_llval s) s builder
       | A.MakeArray(typ, e) ->
         let len = expr builder e
         and element_t =
@@ -326,31 +378,38 @@ let translate program =
             L.build_struct_gep struct_ptr_load (U.get_struct_member_idx struct_decl member)
             llname builder in
           ignore (L.build_store e' struct_gep builder); e'
-      | A.Binop (e1, op, e2) ->
-	       let e1' = expr builder e1
-         and e2' = expr builder e2 in
-         let l_typ = L.type_of e1' in
-         let build_op =
-         try
-           (match l_typ with
-             _ when l_typ = float_t -> float_ops op
-             (* TODO: Add matrix operations here *)
-           | _ -> default_ops op
-           )
-         with Not_found -> raise (Failure ((U.string_of_op op) ^ " not defined for "
-                                 ^ (L.string_of_lltype l_typ) ^ " in "
-                                 ^ (U.string_of_expr e2)))
-         in
-         build_op e1' e2' "tmp" builder
+     | A.Binop (e1, op, e2)  ->
+         let e1' = expr builder e1 and e2' = expr builder e2 in
+         let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
+         let l_typs = (l_typ1, l_typ2) in
+         (
+           if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
+           else if l_typs = (float_t, float_t) then (float_ops op e1' e2' "tmp" builder)
+           else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
+           else if l_typs = (i1_t, i1_t) then (bool_ops op e1' e2' "tmp" builder)
+           else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
+                            (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
+           else if l_typ2 = fmatrix_t && (l_typ1 = i32_t || l_typ1 = float_t) then
+                            (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
+           else raise (Failure ((U.string_of_op op) ^ " not defined for " ^
+                                  (L.string_of_lltype l_typ1) ^ " and " ^
+                                  (L.string_of_lltype l_typ2) ^ " in " ^
+                                  (U.string_of_expr e2)
+                                )
+                         )
+         )
       | A.Unop(op, e) ->
-	       let e' = expr builder e in
+         let e' = expr builder e in
          let l_typ = L.type_of e' in
          (match op with
-	          A.Neg     -> if l_typ = float_t then L.build_fneg else L.build_neg
-          | A.Not     -> L.build_not
-          | _         -> L.build_not (* TODO: this is just a placeholder. transpose not implemented *)
-         ) e' "tmp" builder
-      | A.Assign (s, e) -> (* TODO: test struct/array pointer reassign *)
+            A.Neg          ->
+             if      l_typ = float_t then L.build_fneg e' "tmp" builder
+             else if l_typ = fmatrix_t then build_external "negate" [| e' |] builder
+             else    L.build_neg e' "tmp" builder
+         | A.Not          -> L.build_not e' "tmp" builder
+         | A.Transpose    -> build_external "transpose" [| e' |] builder
+         )
+      | A.Assign (s, e) -> (* TODO: matrix reassign *)
             let e' = expr builder e in
             ignore (L.build_store e' (lookup_llval s) builder); e'
       | A.Call ("printf", act) ->

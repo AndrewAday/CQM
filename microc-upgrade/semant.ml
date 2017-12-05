@@ -96,62 +96,6 @@ let check program =
         )
       | _ -> raise (Failure ("Not a struct " ^ s))
     in
-    (* ========================= Binary Operators ========================= *)
-
-    let check_default_ops t1 t2 op =
-      let helper p1 p2 = function
-          Add | Sub | Mult | Div when p1 = Int && p2 = Int -> Int
-        | Equal | Neq when p1 = p2 -> Bool
-        | Less | Leq | Greater | Geq when p1 = Int && p2 = Int -> Bool
-        | And | Or when p1 = Bool && p2 = Bool -> Bool
-        | _ -> raise Not_found
-      in
-      let t =
-        match (t1, t2) with
-            (PrimitiveType(p1), PrimitiveType(p2)) -> helper p1 p2 op
-          | _ -> raise Not_found
-      in PrimitiveType(t)
-    in
-
-    let check_float_ops t1 t2 op =
-      let helper p1 p2 = function
-          Add | Sub | Mult | Div when p1 = Float && p2 = Float -> Float
-        | Equal | Neq when p1 = p2 -> Bool
-        | Less | Leq | Greater | Geq when p1 = Float && p2 = Float -> Bool
-        | _ -> raise Not_found
-      in
-      let t =
-      match (t1, t2) with
-          (PrimitiveType(p1), PrimitiveType(p2)) -> helper p1 p2 op
-        | _ -> raise Not_found
-      in PrimitiveType(t)
-    in
-
-    let check_string_ops (t1: typ) (t2: typ) op =
-      let helper (p1: primitive_type) (p2: primitive_type) = function
-          Add when p1 = String && p2 = String -> String
-        | Equal | Neq when p1 = p2 -> Bool
-        | _ -> raise Not_found
-      in
-      let t =
-        match (t1, t2) with
-            (PrimitiveType(p1), PrimitiveType(p2)) -> helper p1 p2 op
-          | _ -> raise Not_found
-      in PrimitiveType(t)
-    in
-
-    let check_unary_ops t op =
-      let helper p = function
-          Neg when p = Int -> Int
-        | Neg when p = Float -> Float
-        | Not when p = Bool -> Bool
-        | _ -> raise Not_found
-      in
-      match t with
-          PrimitiveType(t) -> PrimitiveType(helper t op)
-        | _ -> raise Not_found
-    in
-
 
     (* ==================================================================== *)
 
@@ -188,24 +132,54 @@ let check program =
           check_array_or_throw t a_name;
           let arr_t = get_array_type t in
           check_assign arr_t expr_t ex
-      | Binop(e1, op, e2) as e -> let t1: typ = expr e1 and t2: typ = expr e2 in
-         let expr_type =
-           try
-             (match t1 with
-               PrimitiveType(t) when t = Float -> check_float_ops t1 t2 op
-             | PrimitiveType(t) when t = String -> check_string_ops t1 t2 op
-             | _ -> check_default_ops t1 t2 op
-             )
-           with Not_found -> raise (Failure ("illegal binary operator " ^
-                                  string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-                                  string_of_typ t2 ^ " in " ^ string_of_expr e))
-         in expr_type
-      | Unop(op, e) as ex -> let t = expr e in
-          let expr_type =
-            try check_unary_ops t op
-        	  with Not_found -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-        	  		                 string_of_typ t ^ " in " ^ string_of_expr ex))
-          in expr_type
+      | Binop(e1, op, e2) as e -> let typ1 = expr e1 and typ2 = expr e2 in
+        let ret =
+        try
+           match (typ1, typ2) with
+              (PrimitiveType(t1), PrimitiveType(t2)) -> (
+                let inner_type =
+                     match op with
+                        Add | Sub | Mult | Div when (t1 = t2) &&
+                          (t1 = Int || t1 = Float || t1 = String || t1 = Imatrix || t1 = Fmatrix) -> t1
+                      | Dot when (t1 = t2) && (t1 = Imatrix || t2 = Fmatrix) -> t1
+                      (* Is it possible here to cast int scalar types into double to prevent
+                      a compiler error later on? *)
+                      | Add | Sub | Mult | Div when (t1 = Fmatrix || t1 = Imatrix) && (t2 = Float) -> t1
+                      | Add | Sub | Mult | Div when (t1 = Float) && (t2 = Fmatrix || t2 = Imatrix) -> t2
+                      | Equal | Neq when (t1 = t2) ->
+                        let check_eq_typ = function
+                          | (Imatrix | Fmatrix)  -> Imatrix
+                          | (Float | Int | Bool) -> Bool
+                          | _                    -> raise Not_found
+                        in check_eq_typ t1
+
+                      | Less | Leq | Greater | Geq when (t1 = t2) && (t1 = Float || t1 = Int) -> Bool
+                      | And | Or when (t1 = t2) && (t1 = Bool) -> Bool
+
+                      | _ -> raise Not_found
+                        (* TODO: Need to figure out return type of a boolean matrix... is that just an Imatrix?? *)
+                in PrimitiveType(inner_type)
+              )
+            | _ -> raise (Failure "not implemented")
+        with Not_found -> raise (Failure ("Illegal binary operator " ^
+                            string_of_typ typ1 ^ " " ^ string_of_op op ^ " " ^
+                            string_of_typ typ2 ^ " in " ^ string_of_expr e))
+        in ret
+      | Unop(op, e) as ex ->
+         let typ1 = expr e in (
+           match typ1 with
+              PrimitiveType(t) -> (
+                 let inner_type =
+                	 match op with
+                	    Neg when (t != String && t != Bool) -> t
+                    | Not when t = Bool -> t
+                    | Transpose when (t = Fmatrix || t = Imatrix) -> t
+                    | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+                	  		                 string_of_typ typ1 ^ " in " ^ string_of_expr ex))
+                 in PrimitiveType(inner_type)
+              )
+            | _ -> raise (Failure "not implemented")
+         )
       | Assign(var, e) as ex ->
         let lt = type_of_identifier var
         and rt = expr e in

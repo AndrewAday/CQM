@@ -29,8 +29,7 @@ rule token = parse
 | "**"     { POW }
 | '%'      { MOD }
 | '^'      { MATTRANS }
-| ".."     { MATMUL }
-| ".*"     { MATDOTMUL }
+| ".."     { DOT }
 | ':'      { SLICE }
 | "=="     { EQ }
 | "!="     { NEQ }
@@ -38,7 +37,7 @@ rule token = parse
 | "<="     { LEQ }
 | ">"      { GT }
 | ">="     { GEQ }
-| "&&"    { AND }
+| "&&"     { AND }
 | "||"     { OR }
 | "!"      { NOT }
 (*----------------------------------CONTROL-----------------------------------*)
@@ -48,7 +47,6 @@ rule token = parse
 | "while"  { WHILE }
 | "return" { RETURN }
 | "extern" { EXTERN }
-| "new"    { NEW }
 | "make"   { MAKE }
 (*-----------------------------------TYPES------------------------------------*)
 | "int"    		{ INT }
@@ -58,7 +56,6 @@ rule token = parse
 | "string"   	{ STRING }
 | "imatrix"   	{ IMATRIX }
 | "fmatrix"   	{ FMATRIX }
-| "smatrix"   	{ SMATRIX }
 | "tup"    		{ TUPLE }
 | "struct" 		{ STRUCT }
 (*---------------------------------LITERALS-----------------------------------*)
