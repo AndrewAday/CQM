@@ -37,7 +37,7 @@ let check program =
                       StringMap.empty structs in
 
 (*=========================== Checking Functions =============================*)
-  let built_in_keywords = Array.to_list [| "make"; "len"; "free"; "size"; |] in
+  let built_in_keywords = Array.to_list [| "make"; "len"; "free"; "free_arr"; "size"; |] in
 
   List.iter (fun fname ->
     if List.mem fname (List.map (fun fd -> fd.fname) functions)
@@ -111,7 +111,7 @@ let check program =
           if match_struct typ then typ else
           raise (Failure  ("illegal make, must be type struct, in " ^ string_of_expr ex))
       | MakeArray (typ, e) as ex ->
-          if match_int (expr e) then ArrayType(typ) else
+          if match_primitive [|Int|] (expr e) then ArrayType(typ) else
           raise (Failure  ("illegal make, must provide integer size, in " ^ string_of_expr ex))
       | StructAccess (s_name, member) -> ignore(type_of_identifier s_name); (*check it's declared *)
           let s_decl = get_struct_decl s_name in (* get the ast struct_decl type *)
@@ -191,6 +191,16 @@ let check program =
         let t = expr e in
         if match_array t then PrimitiveType(Int)
         else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to len, must be array"))
+      | Call("free", [e]) ->
+        let t = expr e in
+        if (match_struct t || match_primitive [|Imatrix; Fmatrix|] t)
+        then PrimitiveType(Void)
+        else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to free, must be struct or matrix"))
+      | Call("free_arr", [e]) ->
+        let t = expr e in
+        if (match_array t)
+        then PrimitiveType(Void)
+        else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to free_arr, must be array"))
   (*==========================================================================*)
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
@@ -206,7 +216,7 @@ let check program =
       | _ -> PrimitiveType(Void)  (*Not implemented *)
     in
 
-    let check_bool_expr e = if not (match_bool (expr e))
+    let check_bool_expr e = if not (match_primitive [|Bool|] (expr e))
      then raise (Failure (
        "expected Boolean expression in " ^ string_of_expr e
        ))

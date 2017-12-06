@@ -143,13 +143,13 @@ let check_assign lvaluet rvaluet expr =
 let check_func_param_assign lvaluet rvaluet err =
   if check_asn_silent lvaluet rvaluet then lvaluet else raise err
 
-let match_int = function
-      PrimitiveType(p) when p = Int -> true
-    | _ -> false
+let rec contains x = function
+    [] -> false
+  | hd :: tl -> if x = hd then true else contains x tl
 
-let match_bool = function
-      PrimitiveType(p) -> if p = Bool then true else false
-    | _ -> false
+let match_primitive primitives = function
+    PrimitiveType(p) -> contains p (Array.to_list primitives)
+  | _ -> false
 
 let match_struct = function
     StructType(_) -> true

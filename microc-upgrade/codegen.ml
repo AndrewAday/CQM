@@ -293,10 +293,10 @@ let translate program =
       L.build_gep ptr [| (L.const_int i8_t (8)) |] "body_ptr" builder
     in
 
-    (* let body_to_meta body_ptr builder =
+    let body_to_meta body_ptr builder =
       let ptr = L.build_bitcast body_ptr i8_ptr_t "body_ptr" builder in
       L.build_gep ptr [| (L.const_int i8_t (-8)) |] "meta_ptr" builder
-    in *)
+    in
 
     let make_array element_t len builder =
       let element_sz = L.build_bitcast (L.size_of element_t) i32_t "b" builder in
@@ -429,6 +429,15 @@ let translate program =
           (get_meta arr_ptr len_offset builder)
           "len"
           builder
+      | A.Call("free", [e]) ->
+        let ptr = expr builder e in
+        L.build_free ptr builder
+      | A.Call("free_arr", [e]) ->
+      (* we have to make a separate free for arrays to know to move ptr back
+      8 bytes so we can free metadata *)
+        let body_ptr = expr builder e in
+        let meta_ptr = body_to_meta body_ptr builder in
+        L.build_free meta_ptr builder
   (*==========================================================================*)
       | A.Call (f_name, act) ->
          (* we double reverse here for historic reasons. should we undo?
