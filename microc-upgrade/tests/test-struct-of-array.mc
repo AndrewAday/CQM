@@ -1,11 +1,11 @@
 struct foo {
-  int[] a;
+  []int a;
 }
 
 int main()
 {
   struct foo foo;
-  int[] a;
+  []int a;
   foo = make(struct foo);
   foo.a = make(int, 5);
   a = foo.a;

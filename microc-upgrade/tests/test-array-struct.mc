@@ -10,7 +10,7 @@ void bar(struct foo foo)
 
 int main()
 {
-  struct foo[] arr;
+  []struct foo arr;
   struct foo foo;
   arr = make(struct foo, 2);
   foo = arr[0];

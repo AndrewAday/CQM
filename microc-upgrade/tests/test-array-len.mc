@@ -1,7 +1,7 @@
 int main()
 {
-  int[] arr;
-  int[] arr2;
+  []int arr;
+  []int arr2;
   arr = make(int, 19);
   print(len(arr));
   arr2 = arr;

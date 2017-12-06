@@ -110,7 +110,7 @@ struct_type:
     STRUCT ID { StructType($2) }
 
 array_type:
-    typ LBRACK RBRACK { ArrayType($1) }
+    LBRACK RBRACK typ { ArrayType($3) }
 
 /*============================================================================*/
 

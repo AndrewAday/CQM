@@ -1,14 +1,14 @@
-void foo(float[] arr, float f)
+void foo([]float arr, float f)
 {
   arr[2] = f;
 }
 
-string[] global_arr;
+[]string global_arr;
 
 int main()
 {
-  float[] arr;
-  float[] arr1;
+  []float arr;
+  []float arr1;
   global_arr = make(string, 1);
   global_arr[0] = "arrays work!";
   print_string(global_arr[0]);
