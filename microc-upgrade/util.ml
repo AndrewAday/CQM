@@ -71,6 +71,7 @@ let rec string_of_expr = function
   | ArrayAssign(arr_name, e1, e2) -> arr_name ^ "[" ^ string_of_expr e1 ^ "]" ^ "=" ^ string_of_expr e2
   | MakeStruct(t) -> "make(" ^ string_of_typ t ^ ")"
   | MakeArray(t,e) -> "make(" ^ string_of_typ t ^ "," ^ string_of_expr e ^ ")"
+  | ArrayLit(typ, el) -> "(" ^ string_of_typ typ ^ ") {" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
   | _ -> "UNKNOWN"
 
 let rec string_of_stmt = function

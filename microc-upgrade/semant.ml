@@ -132,6 +132,12 @@ let check program =
           check_array_or_throw t a_name;
           let arr_t = get_array_type t in
           check_assign arr_t expr_t ex
+      | ArrayLit(arr_type, expr_list) as ex ->
+        if match_array arr_type then
+          let inner_type = get_array_type arr_type in
+          List.iter (fun e -> ignore(check_assign inner_type (expr e) ex)) expr_list;
+          arr_type
+        else raise (Failure ("expected array type in expr " ^ string_of_expr ex))
       | Binop(e1, op, e2) as e -> let typ1 = expr e1 and typ2 = expr e2 in
         let ret =
         try
@@ -184,9 +190,8 @@ let check program =
         let lt = type_of_identifier var
         and rt = expr e in
         check_assign lt rt ex
-        (* TODO: add rules for struct and array assign *)
-      | Call("printf", _) -> PrimitiveType(Int)
   (*============================= built in fns ===============================*)
+      | Call("printf", _) -> PrimitiveType(Int)
       | Call("len", [e]) ->
         let t = expr e in
         if match_array t then PrimitiveType(Int)

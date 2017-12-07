@@ -2,7 +2,6 @@
 
 %{
 open Ast
-
 %}
 
 
@@ -110,7 +109,7 @@ struct_type:
     STRUCT ID { StructType($2) }
 
 array_type:
-    LBRACK RBRACK typ { ArrayType($3) }
+    typ LBRACK RBRACK { ArrayType($1) }
 
 /*============================================================================*/
 
@@ -184,6 +183,16 @@ expr:
   | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
   | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
   | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
+  | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE { ArrayLit($2, $5) }
+  | LPAREN struct_type RPAREN LBRACE struct_lit_opt RBRACE { StructLit($2, $5) }
+
+struct_lit_opt:
+    /* nothing */ { [] }
+  | struct_lit_list { List.rev $1 }
+
+struct_lit_list:
+    PERIOD ID ASSIGN expr { [($2, $4)] }
+  | struct_lit_list COMMA PERIOD ID ASSIGN expr { ($4, $6) :: $1 }
 
   /*TODO: struct array assign/access */
 actuals_opt:
@@ -194,6 +203,6 @@ actuals_list:
     expr                    { [$1] }
   | actuals_list COMMA expr { $3 :: $1 }
 
- rows:
+ /*rows:
     actuals_opt             { [$1] }
-  | rows COMMA actuals_opt   { $3 :: $1 }
+  | rows COMMA actuals_opt   { $3 :: $1 }*/

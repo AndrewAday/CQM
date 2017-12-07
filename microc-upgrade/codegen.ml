@@ -378,6 +378,15 @@ let translate program =
             L.build_struct_gep struct_ptr_load (U.get_struct_member_idx struct_decl member)
             llname builder in
           ignore (L.build_store e' struct_gep builder); e'
+     | A.ArrayLit (arr_type, expr_list) ->
+        let arr_ptr = expr builder (A.MakeArray(U.get_array_type arr_type,
+                                  A.IntLit(List.length expr_list))) in
+        List.iteri (fun idx e ->
+          let arr_gep = L.build_in_bounds_gep arr_ptr [| L.const_int i32_t (idx) |] "array_lit" builder in
+          let assign_val = expr builder e in
+          ignore (L.build_store assign_val arr_gep builder)
+        ) expr_list;
+        arr_ptr
      | A.Binop (e1, op, e2)  ->
          let e1' = expr builder e1 and e2' = expr builder e2 in
          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
