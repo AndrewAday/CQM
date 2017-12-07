@@ -9,6 +9,7 @@ let id = ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']*
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
 | "/*"     { comment lexbuf }           (* Comments *)
+| "//"     { inline_comment lexbuf }
 (*-----------------------------------SYNTAX-----------------------------------*)
 | '('      { LPAREN }
 | ')'      { RPAREN }
@@ -72,3 +73,7 @@ rule token = parse
 and comment = parse
   "*/" { token lexbuf }
 | _    { comment lexbuf }
+
+and inline_comment = parse
+  ['\n'] { token lexbuf }
+| _    { inline_comment lexbuf }
