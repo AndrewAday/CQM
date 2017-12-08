@@ -3,7 +3,8 @@ int add(int x, int y) {
 }
 
 void print_bin(fp (int, int, int) f, int x, int y) {
-  f(x, y);
+  print(f(x, y));
+  return;
 }
 
 int main() {

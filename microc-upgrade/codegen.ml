@@ -59,7 +59,7 @@ let translate program =
         if (U.match_struct typ || U.match_array typ)
         then ltype_of_typ struct_decl_map typ  (* already a pointer, don't cast *)
         else L.pointer_type (ltype_of_typ struct_decl_map typ)
-    | A.FptrType(fp) -> 
+    | A.FptrType(fp) ->
         let rt = ltype_of_typ struct_decl_map (List.hd fp)
         and args = Array.of_list
           (List.map (fun t -> ltype_of_typ struct_decl_map t) (List.tl fp)) in
@@ -140,7 +140,7 @@ let translate program =
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty local_functions in
 
-  let find_func fname = 
+  let find_func fname =
     if (StringMap.mem fname local_decls) then StringMap.find fname local_decls
     else StringMap.find fname extern_decls
   in
@@ -346,10 +346,11 @@ let translate program =
         let llname = "make_struct"
         and struct_t = L.element_type (ltype_of_typ struct_decl_map typ) in
         L.build_malloc struct_t llname builder
-      | A.MakeFptr(fname) -> 
+      | A.MakeFptr(fname) ->
           let (fdef, _) = find_func fname in
-            let fptr_gep = L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder in
-              L.build_store fdef fptr_gep builder
+          fdef
+            (* let fptr_gep = L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder in
+              L.build_store fdef fptr_gep builder *)
           (*raise (Failure (L.string_of_llvalue fdef))*)
           (*L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder*)
       | A.ArrayAccess (arr_name, idx_expr) ->
@@ -450,9 +451,10 @@ let translate program =
       | A.Call (f_name, act) ->
         let actuals = Array.of_list (List.rev (List.map (expr builder) (List.rev act))) in
           try
-            let fdef = lookup_llval f_name in
+            let fdef = lookup_llval f_name in  (* first search for function pointer *)
               let fptr_load = L.build_load fdef "load_fptr" builder in
-                L.build_call fdef actuals (f_name ^ "_result") builder
+                (* L.build_call fdef actuals (f_name ^ "_result") builder *)
+                L.build_call fptr_load actuals (f_name ^ "_result") builder
               (*raise (Failure (f_name ^ "---" ^ (L.string_of_llvalue fdef)))*)
           with Not_found ->
             (* we double reverse here for historic reasons. should we undo?
