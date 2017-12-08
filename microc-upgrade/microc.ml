@@ -6,7 +6,6 @@ module StringMap = Map.Make(String)
 type action = Ast | LLVM_IR | Compile
 
 let _ =
-  print_string "hello\n";
   let action = ref Compile in
   let set_action a () = action := a in
   let speclist = [

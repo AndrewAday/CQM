@@ -348,7 +348,8 @@ let translate program =
         L.build_malloc struct_t llname builder
       | A.MakeFptr(fname) -> 
           let (fdef, _) = find_func fname in
-            fdef
+            let fptr_gep = L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder in
+              L.build_store fdef fptr_gep builder
           (*raise (Failure (L.string_of_llvalue fdef))*)
           (*L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder*)
       | A.ArrayAccess (arr_name, idx_expr) ->
@@ -450,7 +451,9 @@ let translate program =
         let actuals = Array.of_list (List.rev (List.map (expr builder) (List.rev act))) in
           try
             let fdef = lookup_llval f_name in
-              L.build_call fdef actuals (f_name ^ "_result") builder
+              let fptr_load = L.build_load fdef "load_fptr" builder in
+                L.build_call fdef actuals (f_name ^ "_result") builder
+              (*raise (Failure (f_name ^ "---" ^ (L.string_of_llvalue fdef)))*)
           with Not_found ->
             (* we double reverse here for historic reasons. should we undo?
               Need to specify the order we eval fn arguments in LRM
