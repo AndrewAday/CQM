@@ -16,6 +16,8 @@ module L = Llvm
 module A = Ast
 module U = Util
 
+module P = Printf
+
 module StringMap = Map.Make(String)
 
 exception Bug of string;;
@@ -48,7 +50,6 @@ let translate program =
     | A.Void -> void_t
     | A.Fmatrix -> fmatrix_t
     | A.Imatrix -> fmatrix_t
-    | _ -> void_t
   in
 
   let rec ltype_of_typ struct_decl_map = function
@@ -58,7 +59,11 @@ let translate program =
         if (U.match_struct typ || U.match_array typ)
         then ltype_of_typ struct_decl_map typ  (* already a pointer, don't cast *)
         else L.pointer_type (ltype_of_typ struct_decl_map typ)
-
+    | A.FptrType(fp) -> 
+        let rt = ltype_of_typ struct_decl_map (List.hd fp)
+        and args = Array.of_list
+          (List.map (fun t -> ltype_of_typ struct_decl_map t) (List.tl fp)) in
+          L.pointer_type (L.function_type rt args)
   in
 (* ========================================================================== *)
   (* Collect struct declarations. Builds a map struct_name[string] -> (lltype, A.struct_decl)  *)
@@ -88,6 +93,7 @@ let translate program =
       )
     | A.StructType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
     | A.ArrayType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
+    | A.FptrType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
   in
 
   (* Declare each global variable; remember its value in a map *)
@@ -133,6 +139,11 @@ let translate program =
       let ftype = L.function_type (ltype_of_typ struct_decl_map fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty local_functions in
+
+  let find_func fname = 
+    if (StringMap.mem fname local_decls) then StringMap.find fname local_decls
+    else StringMap.find fname extern_decls
+  in
 
   (* call an externally defined function by name and arguments *)
   let build_external fname actuals the_builder =
@@ -335,6 +346,11 @@ let translate program =
         let llname = "make_struct"
         and struct_t = L.element_type (ltype_of_typ struct_decl_map typ) in
         L.build_malloc struct_t llname builder
+      | A.MakeFptr(fname) -> 
+          let (fdef, _) = find_func fname in
+            fdef
+          (*raise (Failure (L.string_of_llvalue fdef))*)
+          (*L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder*)
       | A.ArrayAccess (arr_name, idx_expr) ->
         let idx = expr builder idx_expr in
         let llname = arr_name ^ "[" ^ L.string_of_llvalue idx ^ "]" in
@@ -431,17 +447,16 @@ let translate program =
           builder
   (*==========================================================================*)
       | A.Call (f_name, act) ->
-         (* we double reverse here for historic reasons. should we undo?
-            Need to specify the order we eval fn arguments in LRM
-         *)
-         let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-         if (StringMap.mem f_name local_decls) then
-           let (fdef, fdecl) = StringMap.find f_name local_decls in
-           L.build_call fdef (Array.of_list actuals) (U.get_result_name f_name fdecl.A.typ) builder
-         else
-           let (fdef, fdecl) = StringMap.find f_name extern_decls in
-           L.build_call fdef (Array.of_list actuals) (U.get_result_name f_name fdecl.A.typ) builder
-      | _ -> raise (Failure "expression not implemented")
+        let actuals = Array.of_list (List.rev (List.map (expr builder) (List.rev act))) in
+          try
+            let fdef = lookup_llval f_name in
+              L.build_call fdef actuals (f_name ^ "_result") builder
+          with Not_found ->
+            (* we double reverse here for historic reasons. should we undo?
+              Need to specify the order we eval fn arguments in LRM
+            *)
+            let (fdef, fdecl) = find_func f_name in
+              L.build_call fdef actuals (U.get_result_name f_name fdecl.A.typ) builder
     in
 
     (* Invoke "f builder" if the current block doesn't already

@@ -5,17 +5,17 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not | Transpose
 
-  (* TODO: to support nested structs, will want to def StructAccess of (StructAccess * string) *)
+(* TODO: to support nested structs, will want to def StructAccess of (StructAccess * string) *)
 (* type struct_access = string * string *)
 
 (* Types *)
-type primitive_type = Float | Int | Bool | Void | String |
-                      Tuple | Imatrix | Fmatrix 
+type primitive_type = Float | Int | Bool | Void | String | Imatrix | Fmatrix 
+
 type typ =
     PrimitiveType of primitive_type
   | StructType of string
-  | ArrayType of typ
-  (* | PointerType of typ *)
+  | FptrType of typ list
+  | ArrayType of typ 
 
 type location = Local | External
 
@@ -26,18 +26,10 @@ type expr =
   | FloatLit of float
   | StringLit of string
   | BoolLit of bool
-(*   | TupLit of expr list *)
-  | MatLit of expr list list
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
   | Assign of string * expr
-(*   | Pipe of expr * expr
-  | Slice of expr * expr *expr
-  | Tupselect of expr * expr
-  | Tupassign of expr * expr * expr
-  | Matselect of expr * expr * expr
-  | Matassign of expr * expr * expr * expr *)
   | Call of string * expr list
   | StructAccess of (string * string)
   | StructAssign of (string * string * expr)
@@ -45,6 +37,7 @@ type expr =
   | ArrayAssign of (string * expr * expr)
   | MakeStruct of typ
   | MakeArray of (typ * expr)
+  | MakeFptr of (string)
   | Noexpr
 
 type stmt =
@@ -67,6 +60,11 @@ type func_decl = {
 type struct_decl = {
     name : string;
     members : bind list;
+}
+
+type fptr_type = {
+  rt: typ;
+  args: typ list;
 }
 
 type program = {

@@ -56,8 +56,8 @@ rule token = parse
 | "string"   	{ STRING }
 | "imatrix"   	{ IMATRIX }
 | "fmatrix"   	{ FMATRIX }
-| "tup"    		{ TUPLE }
 | "struct" 		{ STRUCT }
+| "fp"                { FPTR }
 (*---------------------------------LITERALS-----------------------------------*)
 | "true"   { TRUE }
 | "false"  { FALSE }
@@ -65,7 +65,6 @@ rule token = parse
 | (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm  { FLOATLIT(float_of_string lxm) }
 | '"' ((ascii | esc)* as s)'"'                                { STRINGLIT(s) }
 | id as lxm                                                   { ID(lxm) }
-| id"*" as lxm                                                { PNTR(lxm) }
 | eof                                                         { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

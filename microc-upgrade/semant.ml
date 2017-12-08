@@ -113,6 +113,11 @@ let check program =
       | MakeArray (typ, e) as ex ->
           if match_int (expr e) then ArrayType(typ) else
           raise (Failure  ("illegal make, must provide integer size, in " ^ string_of_expr ex))
+      | MakeFptr (fname) ->
+          let fdecl = function_decl fname in
+            let rt_typ = fdecl.typ
+            and form_typs = List.map (fun (typ, _) -> typ) fdecl.formals in
+              FptrType (rt_typ :: form_typs )
       | StructAccess (s_name, member) -> ignore(type_of_identifier s_name); (*check it's declared *)
           let s_decl = get_struct_decl s_name in (* get the ast struct_decl type *)
           get_struct_member_type s_decl member
@@ -192,18 +197,32 @@ let check program =
         if match_array t then PrimitiveType(Int)
         else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to len, must be array"))
   (*==========================================================================*)
-      | Call(fname, actuals) as call -> let fd = function_decl fname in
-         if List.length actuals != List.length fd.formals then
-           raise (Failure ("expecting " ^ string_of_int
-             (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
-         else
-           List.iter2 (fun (ft, _) e -> let et = expr e in
-              ignore (check_func_param_assign ft et
-                (Failure ("illegal actual argument found " ^ string_of_typ et ^
-                " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
-             fd.formals actuals;
-           fd.typ
-      | _ -> PrimitiveType(Void)  (*Not implemented *)
+      | Call(fname, actuals) as call ->
+        try
+          let var = type_of_identifier fname in
+            match var with
+              FptrType(fp) ->
+                let rt = List.hd fp and args = List.tl fp in
+                  if List.length actuals != List.length args then
+                    raise (Failure ("Fail"))
+                  else
+                    List.iter2 (fun ft e -> let et = expr e in
+                      ignore (check_func_param_assign ft et (Failure ("Fail"))))
+                    args actuals;
+                  rt
+            | _ -> raise (Failure ("Fail"))
+        with _ ->
+          let fd = function_decl fname in
+           if List.length actuals != List.length fd.formals then
+             raise (Failure ("expecting " ^ string_of_int
+               (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
+           else
+             List.iter2 (fun (ft, _) e -> let et = expr e in
+                ignore (check_func_param_assign ft et
+                  (Failure ("illegal actual argument found " ^ string_of_typ et ^
+                  " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+               fd.formals actuals;
+             fd.typ
     in
 
     let check_bool_expr e = if not (match_bool (expr e))

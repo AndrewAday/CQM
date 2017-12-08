@@ -7,7 +7,6 @@ let string_of_primitive_type = function
     | Bool -> "bool"
     | Void -> "void"
     | String -> "string"
-    | Tuple -> "tuple"
     | Imatrix -> "imatrix"
     | Fmatrix -> "fmatrix"
 
@@ -15,6 +14,7 @@ let rec string_of_typ = function
     PrimitiveType(t) -> string_of_primitive_type t
   | StructType(s)    -> "struct " ^ s
   | ArrayType(typ) -> (string_of_typ typ) ^ "[]"
+  | FptrType(typs) -> String.concat ", " (List.map string_of_typ typs)
 
 let string_of_op = function
     Add -> "+"
@@ -129,6 +129,11 @@ let rec check_asn_silent lvaluet rvaluet =
         (print_endline (s1 ^ s2); false)
     | (ArrayType(typ1), ArrayType(typ2)) ->
         if check_asn_silent typ1 typ2 then true else false
+    | (FptrType(fp1), FptrType(fp2)) -> 
+        if List.length fp1 != List.length fp2 then
+          (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
+        else if fp1 = fp2 then true else
+          (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
     | _ -> false
 
 (* Raise an exception of the given rvalue type cannot be assigned to
