@@ -7,7 +7,6 @@ let string_of_primitive_type = function
     | Bool -> "bool"
     | Void -> "void"
     | String -> "string"
-    | Tuple -> "tuple"
     | Imatrix -> "imatrix"
     | Fmatrix -> "fmatrix"
 
@@ -15,6 +14,7 @@ let rec string_of_typ = function
     PrimitiveType(t) -> string_of_primitive_type t
   | StructType(s)    -> "struct " ^ s
   | ArrayType(typ) -> (string_of_typ typ) ^ "[]"
+  | FptrType(typs) -> String.concat ", " (List.map string_of_typ typs)
 
 let string_of_op = function
     Add -> "+"
@@ -72,8 +72,7 @@ let rec string_of_expr = function
   | MakeStruct(t) -> "make(" ^ string_of_typ t ^ ")"
   | MakeArray(t,e) -> "make(" ^ string_of_typ t ^ "," ^ string_of_expr e ^ ")"
   | ArrayLit(typ, el) -> "(" ^ string_of_typ typ ^ ") {" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
-  | _ -> "UNKNOWN"
-
+  (* | StructLit(typ, bind_list) -> ignore(bind_list); string_of_typ typ (* TODO: make this real lol *) *)
 let rec string_of_stmt = function
     Block(stmts) ->
       "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
@@ -130,6 +129,11 @@ let rec check_asn_silent lvaluet rvaluet =
         (print_endline (s1 ^ s2); false)
     | (ArrayType(typ1), ArrayType(typ2)) ->
         if check_asn_silent typ1 typ2 then true else false
+    | (FptrType(fp1), FptrType(fp2)) ->
+        if List.length fp1 != List.length fp2 then
+          (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
+        else if fp1 = fp2 then true else
+          (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
     | _ -> false
 
 (* Raise an exception of the given rvalue type cannot be assigned to
@@ -171,6 +175,11 @@ let report_duplicate exceptf lst =
     | _ :: t -> helper t
     | [] -> ()
   in helper (List.sort compare lst)
+
+let rec get_last = function
+  [t] -> t
+| _ :: tl -> get_last tl
+| _ -> raise (Failure "must be nonempty list")
 
 (*============================== Struct Checkers ============================ *)
 let check_struct_not_empty exceptf = function
@@ -226,6 +235,12 @@ let get_result_name f_name = function
     PrimitiveType(t) -> get_result_primitive_name f_name t
   | _ -> f_name ^ "_result"
 
+let parse_fptr_type typ_list =
+  let arg_typs = if List.length typ_list = 1 then [] else
+    (List.rev (List.tl (List.rev typ_list)))
+  in
+  let ret_typ = get_last typ_list in
+  (arg_typs, ret_typ)
 
 (*================================== Misc==================================== *)
 let try_get_id_str = function

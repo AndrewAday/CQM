@@ -16,6 +16,8 @@ module L = Llvm
 module A = Ast
 module U = Util
 
+module P = Printf
+
 module StringMap = Map.Make(String)
 
 exception Bug of string;;
@@ -48,7 +50,6 @@ let translate program =
     | A.Void -> void_t
     | A.Fmatrix -> fmatrix_t
     | A.Imatrix -> fmatrix_t
-    | _ -> void_t
   in
 
   let rec ltype_of_typ struct_decl_map = function
@@ -58,7 +59,12 @@ let translate program =
         if (U.match_struct typ || U.match_array typ)
         then ltype_of_typ struct_decl_map typ  (* already a pointer, don't cast *)
         else L.pointer_type (ltype_of_typ struct_decl_map typ)
-
+    | A.FptrType(fp) ->
+        let (arg_typs, ret_typ) = U.parse_fptr_type fp in
+        let rt = ltype_of_typ struct_decl_map ret_typ
+        and args = Array.of_list
+          (List.map (fun t -> ltype_of_typ struct_decl_map t) arg_typs) in
+        L.pointer_type (L.function_type rt args)
   in
 (* ========================================================================== *)
   (* Collect struct declarations. Builds a map struct_name[string] -> (lltype, A.struct_decl)  *)
@@ -104,6 +110,7 @@ let translate program =
       )
     | A.StructType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
     | A.ArrayType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
+    | A.FptrType(_) as typ -> L.const_null (ltype_of_typ struct_decl_map typ)
   in
 
   (* Declare each global variable; remember its value in a map *)
@@ -155,6 +162,11 @@ let translate program =
       let ftype = L.function_type (ltype_of_typ struct_decl_map fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty local_functions in
+
+  let find_func fname =
+    if (StringMap.mem fname local_decls) then StringMap.find fname local_decls
+    else StringMap.find fname extern_decls
+  in
 
   (* call an externally defined function by name and arguments *)
   let build_external fname actuals the_builder =
@@ -440,7 +452,13 @@ let translate program =
                                  and r = List.length a and c = List.length (List.hd a) in
                                (L.build_call init_fmat_literal_func [|m; r; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
-      | A.Id s                -> L.build_load (lookup_llval s) s builder
+      | A.Id s                ->
+        let ret =
+        try
+          L.build_load (lookup_llval s) s builder
+        with Not_found -> (* then it's probably a function pointer *)
+          fst (find_func s)
+        in ret
       | A.MakeArray(typ, e) ->
         let len = expr builder e
         and element_t =
@@ -600,17 +618,22 @@ let translate program =
         array_concat left_arr_ptr right_arr_ptr builder
   (*==========================================================================*)
       | A.Call (f_name, act) ->
-         (* we double reverse here for historic reasons. should we undo?
-            Need to specify the order we eval fn arguments in LRM
-         *)
-         let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-         if (StringMap.mem f_name local_decls) then
-           let (fdef, fdecl) = StringMap.find f_name local_decls in
-           L.build_call fdef (Array.of_list actuals) (U.get_result_name f_name fdecl.A.typ) builder
-         else
-           let (fdef, fdecl) = StringMap.find f_name extern_decls in
-           L.build_call fdef (Array.of_list actuals) (U.get_result_name f_name fdecl.A.typ) builder
-      | _ -> raise (Failure "expression not implemented")
+        let actuals = Array.of_list (List.rev (List.map (expr builder) (List.rev act))) in
+          try
+            let fdef = lookup_llval f_name in  (* first search for function pointer *)
+              let fptr_load = L.build_load fdef "load_fptr" builder in
+                let result_name =
+                  if (L.return_type(L.element_type (L.element_type(L.type_of fdef)))) = void_t
+                  then ""
+                  else f_name ^ "_result"
+                in
+                L.build_call fptr_load actuals result_name builder
+          with Not_found ->
+            (* we double reverse here for historic reasons. should we undo?
+              Need to specify the order we eval fn arguments in LRM
+            *)
+            let (fdef, fdecl) = find_func f_name in
+              L.build_call fdef actuals (U.get_result_name f_name fdecl.A.typ) builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
