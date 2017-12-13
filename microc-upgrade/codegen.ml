@@ -60,10 +60,11 @@ let translate program =
         then ltype_of_typ struct_decl_map typ  (* already a pointer, don't cast *)
         else L.pointer_type (ltype_of_typ struct_decl_map typ)
     | A.FptrType(fp) ->
-        let rt = ltype_of_typ struct_decl_map (List.hd fp)
+        let (arg_typs, ret_typ) = U.parse_fptr_type fp in
+        let rt = ltype_of_typ struct_decl_map ret_typ
         and args = Array.of_list
-          (List.map (fun t -> ltype_of_typ struct_decl_map t) (List.tl fp)) in
-          L.pointer_type (L.function_type rt args)
+          (List.map (fun t -> ltype_of_typ struct_decl_map t) arg_typs) in
+        L.pointer_type (L.function_type rt args)
   in
 (* ========================================================================== *)
   (* Collect struct declarations. Builds a map struct_name[string] -> (lltype, A.struct_decl)  *)
@@ -333,7 +334,13 @@ let translate program =
                                  and r = List.length a and c = List.length (List.hd a) in
                                (L.build_call init_fmat_literal_func [|m; r; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
-      | A.Id s                -> L.build_load (lookup_llval s) s builder
+      | A.Id s                ->
+        let ret =
+        try
+          L.build_load (lookup_llval s) s builder
+        with Not_found -> (* then it's probably a function pointer *)
+          fst (find_func s)
+        in ret
       | A.MakeArray(typ, e) ->
         let len = expr builder e
         and element_t =
@@ -346,13 +353,6 @@ let translate program =
         let llname = "make_struct"
         and struct_t = L.element_type (ltype_of_typ struct_decl_map typ) in
         L.build_malloc struct_t llname builder
-      | A.MakeFptr(fname) ->
-          let (fdef, _) = find_func fname in
-          fdef
-            (* let fptr_gep = L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder in
-              L.build_store fdef fptr_gep builder *)
-          (*raise (Failure (L.string_of_llvalue fdef))*)
-          (*L.build_gep fdef [|(L.const_int i32_t 0)|] "build_fptr" builder*)
       | A.ArrayAccess (arr_name, idx_expr) ->
         let idx = expr builder idx_expr in
         let llname = arr_name ^ "[" ^ L.string_of_llvalue idx ^ "]" in
@@ -453,9 +453,12 @@ let translate program =
           try
             let fdef = lookup_llval f_name in  (* first search for function pointer *)
               let fptr_load = L.build_load fdef "load_fptr" builder in
-                (* L.build_call fdef actuals (f_name ^ "_result") builder *)
-                L.build_call fptr_load actuals (f_name ^ "_result") builder
-              (*raise (Failure (f_name ^ "---" ^ (L.string_of_llvalue fdef)))*)
+                let result_name =
+                  if (L.return_type(L.element_type (L.element_type(L.type_of fdef)))) = void_t
+                  then ""
+                  else f_name ^ "_result"
+                in
+                L.build_call fptr_load actuals result_name builder
           with Not_found ->
             (* we double reverse here for historic reasons. should we undo?
               Need to specify the order we eval fn arguments in LRM

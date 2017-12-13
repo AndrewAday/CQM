@@ -9,13 +9,13 @@ type uop = Neg | Not | Transpose
 (* type struct_access = string * string *)
 
 (* Types *)
-type primitive_type = Float | Int | Bool | Void | String | Imatrix | Fmatrix 
+type primitive_type = Float | Int | Bool | Void | String | Imatrix | Fmatrix
 
 type typ =
     PrimitiveType of primitive_type
   | StructType of string
   | FptrType of typ list
-  | ArrayType of typ 
+  | ArrayType of typ
 
 type location = Local | External
 
@@ -37,7 +37,6 @@ type expr =
   | ArrayAssign of (string * expr * expr)
   | MakeStruct of typ
   | MakeArray of (typ * expr)
-  | MakeFptr of (string)
   | Noexpr
 
 type stmt =

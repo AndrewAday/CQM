@@ -106,18 +106,24 @@ let check program =
       | BoolLit _ -> PrimitiveType(Bool)
       | StringLit _ -> PrimitiveType(String)
       | Noexpr -> PrimitiveType(Void)
-      | Id s -> type_of_identifier s
+      | Id s ->
+        let ret_typ =
+        try
+          type_of_identifier s
+        with _ ->  (*try searching for function ptr *)
+          try
+            let fdecl = function_decl s in
+              let rt_typ = fdecl.typ
+              and form_typs = List.map (fun (typ, _) -> typ) fdecl.formals in
+                FptrType (List.append form_typs [rt_typ])
+          with _ -> raise (Failure ("undeclared identifier " ^ s))
+        in ret_typ
       | MakeStruct (typ) as ex ->
           if match_struct typ then typ else
           raise (Failure  ("illegal make, must be type struct, in " ^ string_of_expr ex))
       | MakeArray (typ, e) as ex ->
           if match_int (expr e) then ArrayType(typ) else
           raise (Failure  ("illegal make, must provide integer size, in " ^ string_of_expr ex))
-      | MakeFptr (fname) ->
-          let fdecl = function_decl fname in
-            let rt_typ = fdecl.typ
-            and form_typs = List.map (fun (typ, _) -> typ) fdecl.formals in
-              FptrType (rt_typ :: form_typs )
       | StructAccess (s_name, member) -> ignore(type_of_identifier s_name); (*check it's declared *)
           let s_decl = get_struct_decl s_name in (* get the ast struct_decl type *)
           get_struct_member_type s_decl member
@@ -202,7 +208,7 @@ let check program =
           let var = type_of_identifier fname in
             match var with
               FptrType(fp) ->
-                let rt = List.hd fp and args = List.tl fp in
+                let (args, rt) = parse_fptr_type fp in
                   if List.length actuals != List.length args then
                     raise (Failure ("Fail"))
                   else

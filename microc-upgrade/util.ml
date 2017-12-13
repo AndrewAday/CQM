@@ -71,7 +71,6 @@ let rec string_of_expr = function
   | ArrayAssign(arr_name, e1, e2) -> arr_name ^ "[" ^ string_of_expr e1 ^ "]" ^ "=" ^ string_of_expr e2
   | MakeStruct(t) -> "make(" ^ string_of_typ t ^ ")"
   | MakeArray(t,e) -> "make(" ^ string_of_typ t ^ "," ^ string_of_expr e ^ ")"
-  | _ -> "UNKNOWN"
 
 let rec string_of_stmt = function
     Block(stmts) ->
@@ -129,7 +128,7 @@ let rec check_asn_silent lvaluet rvaluet =
         (print_endline (s1 ^ s2); false)
     | (ArrayType(typ1), ArrayType(typ2)) ->
         if check_asn_silent typ1 typ2 then true else false
-    | (FptrType(fp1), FptrType(fp2)) -> 
+    | (FptrType(fp1), FptrType(fp2)) ->
         if List.length fp1 != List.length fp2 then
           (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
         else if fp1 = fp2 then true else
@@ -171,6 +170,11 @@ let report_duplicate exceptf lst =
     | _ :: t -> helper t
     | [] -> ()
   in helper (List.sort compare lst)
+
+let rec get_last = function
+  [t] -> t
+| _ :: tl -> get_last tl
+| _ -> raise (Failure "must be nonempty list")
 
 (*============================== Struct Checkers ============================ *)
 let check_struct_not_empty exceptf = function
@@ -226,5 +230,11 @@ let get_result_name f_name = function
     PrimitiveType(t) -> get_result_primitive_name f_name t
   | _ -> f_name ^ "_result"
 
+let parse_fptr_type typ_list =
+  let arg_typs = if List.length typ_list = 1 then [] else
+    (List.rev (List.tl (List.rev typ_list)))
+  in
+  let ret_typ = get_last typ_list in
+  (arg_typs, ret_typ)
 
 (*================================== Misc==================================== *)

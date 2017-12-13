@@ -64,7 +64,7 @@ str_decl:
     name = $2;
     members = List.rev $4;
   }}
-  
+
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
       { { typ         = $1;
@@ -112,7 +112,7 @@ array_type:
     typ LBRACK RBRACK { ArrayType($1) }
 
 fptr_type:
-    FPTR LPAREN typ_list RPAREN { FptrType($3) }
+    FPTR LPAREN typ_list RPAREN { FptrType(List.rev $3) }
 
 typ_list:
     typ                    { [$1] }
@@ -181,7 +181,6 @@ expr:
   | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
   | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
   | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
-  | MAKE LPAREN ID RPAREN   { MakeFptr($3) }
 
   /*TODO: struct array assign/access */
 actuals_opt:

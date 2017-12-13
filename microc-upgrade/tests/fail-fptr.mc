@@ -2,7 +2,7 @@ int add(int x, int y) {
   return x + y;
 }
 
-void print_bin(fp (int, int, int) f, int x, int y) {
+void print_bin(fp (float, int, int) f, int x, int y) {
   print(f(x, y));
   return;
 }
