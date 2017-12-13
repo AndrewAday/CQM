@@ -25,8 +25,5 @@ int main()
   print(foo2.i);
   print_float(foo2.f);
 
-
-
-
   return 0;
 }

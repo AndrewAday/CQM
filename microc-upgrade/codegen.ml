@@ -341,7 +341,7 @@ let translate program =
       and casted_arr_ptr = L.build_bitcast arr_gep i8_ptr_t "arr_to_char_ptr" builder
       and casted_elem_sz = L.build_bitcast elem_sz i32_t "i64_to_i32" builder in
       ignore(L.build_call memcpy [|casted_arr_ptr; casted_elem_ptr; casted_elem_sz|] "" builder);
-      (* ignore(L.build_free casted_elem_ptr builder); (* free original object *) *)
+      ignore(L.build_free casted_elem_ptr builder); (* free original object *)
       match restore_ptr with
         Some ptr -> L.build_store arr_gep ptr builder
       | None -> elem_ptr
@@ -391,8 +391,41 @@ let translate program =
       ret_ptr
     in
 
-    (* let array_concat = ()
-    in *)
+    (*
+    During concat(a, b) we will malloc a new array of len(a) + len(b) and
+    memcpy the contents of a and b.
+    We then free the original array a, and leave b untouched.
+    usage: a = concat(a, b)
+    *)
+    let array_concat left_arr_ptr right_arr_ptr builder =
+      let left_meta_ptr = body_to_meta left_arr_ptr builder
+      and right_casted_ptr = L.build_bitcast right_arr_ptr i8_ptr_t "" builder
+      and left_arr_sz = get_meta left_arr_ptr size_offset builder
+      and right_arr_sz =
+        L.build_sub
+          (get_meta right_arr_ptr size_offset builder)
+          metadata_sz "minus_meta_sz" builder
+      and left_arr_len = get_meta left_arr_ptr len_offset builder
+      and right_arr_len = get_meta right_arr_ptr len_offset builder in
+      let new_sz = L.build_add left_arr_sz right_arr_sz "concat_sz" builder in
+      let new_len = L.build_add left_arr_len right_arr_len "concat_len" builder in
+      let dst_meta_ptr = L.build_array_malloc i8_t new_sz "concat_array" builder in
+      let dst_body_ptr = meta_to_body dst_meta_ptr builder in
+      let ret_ptr = L.build_bitcast dst_body_ptr (L.type_of left_arr_ptr) "concat_ret_ptr" builder in
+      let dst_concat_ptr =
+        L.build_bitcast
+          ( L.build_in_bounds_gep ret_ptr [|left_arr_len|] "" builder )
+          i8_ptr_t
+          "concat_pos_ptr"
+          builder
+      in
+      ignore(L.build_call memcpy [|dst_meta_ptr; left_meta_ptr; left_arr_sz|] "" builder);
+      ignore(L.build_call memcpy [|dst_concat_ptr; right_casted_ptr; right_arr_sz|] "" builder);
+      ignore(put_meta dst_body_ptr size_offset new_sz builder);
+      ignore(put_meta dst_body_ptr len_offset new_len builder);
+      ignore(L.build_free left_meta_ptr builder);
+      ret_ptr
+    in
 
     (* ==================================================================== *)
 
@@ -561,7 +594,10 @@ let translate program =
           | None -> None
         ) in
         array_append arr_ptr elem restore_ptr builder
-      (* | A.Call("concat", [e1, e2]) -> *)
+      | A.Call("concat", [e1; e2]) ->
+        let left_arr_ptr = expr builder e1
+        and right_arr_ptr = expr builder e2 in
+        array_concat left_arr_ptr right_arr_ptr builder
   (*==========================================================================*)
       | A.Call (f_name, act) ->
          (* we double reverse here for historic reasons. should we undo?
