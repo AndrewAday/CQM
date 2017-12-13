@@ -37,7 +37,12 @@ let check program =
                       StringMap.empty structs in
 
 (*=========================== Checking Functions =============================*)
-  let built_in_keywords = Array.to_list [| "make"; "len"; "free"; "free_arr"; "size"; |] in
+  let built_in_keywords = Array.to_list
+    [|
+      "make"; "len"; "free"; "free_arr"; "size"; "memset"; "memcpy";
+      "concat"; "append";
+    |]
+  in
 
   List.iter (fun fname ->
     if List.mem fname (List.map (fun fd -> fd.fname) functions)
@@ -206,6 +211,18 @@ let check program =
         if (match_array t)
         then PrimitiveType(Void)
         else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to free_arr, must be array"))
+      | Call("concat", [e1; e2]) as ex ->
+        let arr1 = expr e1
+        and arr2 = expr e2 in
+        if match_array arr1 && match_array arr2
+        then check_assign arr1 arr2 ex
+        else raise (Failure ("Illegal arguments of types " ^
+          string_of_typ arr1 ^ "and" ^ string_of_typ arr2 ^
+          " to concat, must be arrays"))
+      | Call("append", [e1; e2]) as ex ->
+        let arr = expr e1
+        and elem = expr e2 in
+        ignore (check_assign (get_array_type arr) elem ex); arr
   (*==========================================================================*)
       | Call(fname, actuals) as call -> let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then

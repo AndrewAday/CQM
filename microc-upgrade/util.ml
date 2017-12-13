@@ -148,6 +148,10 @@ let rec contains x = function
     [] -> false
   | hd :: tl -> if x = hd then true else contains x tl
 
+let rec try_get x = function
+    [] -> None
+  | hd :: tl -> if x = hd then Some x else try_get x tl
+
 let match_primitive primitives = function
     PrimitiveType(p) -> contains p (Array.to_list primitives)
   | _ -> false
@@ -224,3 +228,6 @@ let get_result_name f_name = function
 
 
 (*================================== Misc==================================== *)
+let try_get_id_str = function
+  Id(s) -> Some s
+| _ -> None
