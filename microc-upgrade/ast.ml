@@ -37,6 +37,8 @@ type expr =
   | MakeStruct of typ
   | MakeArray of (typ * expr)
   | ArrayLit of (typ * expr list)
+  | Pipe of (expr * expr)
+  | Dispatch of (string * string * (expr list))
   (* | StructLit of (typ * (string * expr) list) *)
   | Noexpr
 

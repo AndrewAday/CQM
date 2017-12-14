@@ -57,6 +57,25 @@ decls:
                     functions = $1.functions;
                     structs = $2 :: $1.structs;
                   }}
+ | decls str_mthd_decl {{
+                         global_vars = $1.global_vars;
+                         functions = $2 :: $1.functions;
+                         structs = $1.structs;
+                       }}
+str_mthd_decl:
+  LBRACK struct_name ID RBRACK ID LPAREN formals_opt RPAREN typ LBRACE vdecl_list stmt_list RBRACE
+    {{
+      typ         = $9;
+  	  fname       = "__" ^ $2 ^ "_" ^ $5;
+  	  formals     = (StructType($2), $3) :: $7;
+  	  locals      = List.rev $11;
+      body        = List.rev $12;
+      location    = Local;
+    }}
+
+struct_name:
+  STRUCT ID { $2 }
+
 str_decl:
   STRUCT ID LBRACE vdecl_list RBRACE
   {{
@@ -181,15 +200,17 @@ expr:
   | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
   | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
   | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE { ArrayLit($2, $5) }
+  | expr PIPE expr { Pipe($1, $3) }
+  | ID PERIOD ID LPAREN actuals_opt RPAREN { Dispatch($1, $3, $5) }
   /*| LPAREN struct_type RPAREN LBRACE struct_lit_opt RBRACE { StructLit($2, $5) }*/
 
-struct_lit_opt:
-    /* nothing */ { [] }
-  | struct_lit_list { List.rev $1 }
+/*struct_lit_opt:
+    nothing { [] }
+  | struct_lit_list { List.rev $1 }*/
 
-struct_lit_list:
+/*struct_lit_list:
     PERIOD ID ASSIGN expr { [($2, $4)] }
-  | struct_lit_list COMMA PERIOD ID ASSIGN expr { ($4, $6) :: $1 }
+  | struct_lit_list COMMA PERIOD ID ASSIGN expr { ($4, $6) :: $1 }*/
 
   /*TODO: struct array assign/access */
 actuals_opt:

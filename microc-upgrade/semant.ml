@@ -70,6 +70,10 @@ let check program =
 
   let check_function func =
 
+    (* print_endline "hello";
+
+    List.iter (fun (t,s) -> print_endline (string_of_typ t ^ s)) func.formals; *)
+
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
 
@@ -123,6 +127,18 @@ let check program =
                 FptrType (List.append form_typs [rt_typ])
           with _ -> raise (Failure ("undeclared identifier " ^ s))
         in ret_typ
+      | Pipe (e1, e2) ->
+        begin
+          match e2 with
+            Call(fname, actuals) -> expr (Call(fname, e1 :: actuals))
+          | _ -> raise (Failure
+              ("cannot pipe " ^ string_of_expr e1 ^
+              " into expression" ^ string_of_expr e2))
+        end
+      | Dispatch(s_name, mthd_name, el) ->
+        let s_decl = get_struct_decl s_name in
+        let real_method = methodify mthd_name s_decl.name in
+        expr (Call(real_method, (Id(s_name)) :: el))
       | MakeStruct (typ) as ex ->
           if match_struct typ then typ else
           raise (Failure  ("illegal make, must be type struct, in " ^ string_of_expr ex))
@@ -236,7 +252,7 @@ let check program =
         ignore (check_assign (get_array_type arr) elem ex); arr
   (*==========================================================================*)
       | Call(fname, actuals) as call ->
-        try
+        try (* first check if it is a function pointer arg *)
           let var = type_of_identifier fname in
             match var with
               FptrType(fp) ->

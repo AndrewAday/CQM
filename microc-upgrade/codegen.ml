@@ -459,6 +459,16 @@ let translate program =
         with Not_found -> (* then it's probably a function pointer *)
           fst (find_func s)
         in ret
+      | A.Pipe(e1, e2) ->
+        begin
+          match e2 with
+            A.Call(fname, actuals) -> expr builder (A.Call(fname, e1 :: actuals))
+          | _ -> raise (Failure "illegal pipe")  (* this should never execute *)
+        end
+      | A.Dispatch(s_name, mthd_name, el) ->
+        let struct_decl = get_struct_decl s_name in
+        let real_method = U.methodify mthd_name struct_decl.A.name in
+        expr builder (A.Call(real_method, (A.Id(s_name)) :: el))
       | A.MakeArray(typ, e) ->
         let len = expr builder e
         and element_t =
@@ -498,7 +508,7 @@ let translate program =
         match get_struct_pointer_lltype assign_val with
           (* Note:
             assigning a struct will memcpy the contents of the struct over,
-            free the former struct, and have the  struct ptr now point to the
+            free the former struct, and have the struct ptr now point to the
             array element.
             We do this to prevent assignment "implicitly" duplicating memory
           *)
@@ -632,7 +642,7 @@ let translate program =
             (* we double reverse here for historic reasons. should we undo?
               Need to specify the order we eval fn arguments in LRM
             *)
-            let (fdef, fdecl) = find_func f_name in
+            let (fdef, fdecl) = find_func f_name in (* searching for normal function call *)
               L.build_call fdef actuals (U.get_result_name f_name fdecl.A.typ) builder
     in
 

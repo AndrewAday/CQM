@@ -72,6 +72,9 @@ let rec string_of_expr = function
   | MakeStruct(t) -> "make(" ^ string_of_typ t ^ ")"
   | MakeArray(t,e) -> "make(" ^ string_of_typ t ^ "," ^ string_of_expr e ^ ")"
   | ArrayLit(typ, el) -> "(" ^ string_of_typ typ ^ ") {" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
+  | Pipe(e1, e2) -> string_of_expr e1 ^ " => " ^ string_of_expr e2
+  | Dispatch(strct, mthd_name, el) ->
+    strct ^ "." ^ mthd_name ^ ".(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   (* | StructLit(typ, bind_list) -> ignore(bind_list); string_of_typ typ (* TODO: make this real lol *) *)
 let rec string_of_stmt = function
     Block(stmts) ->
@@ -218,6 +221,9 @@ let parse_struct_access s =
   let l = Str.split (Str.regexp "[.]") s in
   let a = Array.of_list l in
   (a.(0), a.(1))
+
+(* foo.bar(), converts bar to __foo_bar(foo) *)
+let methodify mthd_name s_name = "__" ^ s_name ^ "_" ^ mthd_name
 
 (*============================== Array Checkers ============================= *)
 let check_array_or_throw typ a_name =
