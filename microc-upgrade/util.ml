@@ -49,7 +49,7 @@ let rec string_of_expr = function
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> string_of_uop o ^ string_of_expr e
   | Assign(v, e) -> v ^ " = " ^ string_of_expr e
-  (* | Pipe(v, e) -> string_of_expr v ^ " => " ^ string_of_expr e
+  (*
   | Slice(b, s, e) ->
       string_of_expr b ^ ":" ^ string_of_expr s ^ ":" ^ string_of_expr e
   | Tupselect(v, e) -> string_of_expr v ^ "[" ^ string_of_expr e ^ "]"

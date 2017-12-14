@@ -55,7 +55,7 @@ decls:
  | decls str_decl {{
                     global_vars = $1.global_vars;
                     functions = $1.functions;
-                    structs = $2 :: $1.structs;
+                    structs = List.rev ($2 :: (List.rev ($1.structs)));
                   }}
  | decls str_mthd_decl {{
                          global_vars = $1.global_vars;

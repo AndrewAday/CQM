@@ -29,7 +29,7 @@ let check program =
 (* TODO: struct empty fail test, struct duplicate fail test *)
 (* TODO: passing struct info function test *)
   List.iter (check_struct_not_empty (fun n -> "empty struct " ^ n)) structs;
-  List.iter (check_struct_no_nested (fun n -> "nested struct " ^ n)) structs;
+  (* List.iter (check_struct_no_nested (fun n -> "nested struct " ^ n)) structs; *)
   report_duplicate (fun n -> "duplicate struct name: " ^ n)
     (List.map (fun s -> s.name) structs);
 
