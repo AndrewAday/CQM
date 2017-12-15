@@ -62,6 +62,7 @@ rule token = parse
 (*---------------------------------LITERALS-----------------------------------*)
 | "true"   { TRUE }
 | "false"  { FALSE }
+| "NULL"   { NULL }
 | ['0'-'9']+ as lxm                                           { INTLIT(int_of_string lxm) }
 | (['0'-'9']+'.'['0'-'9']* | ['0'-'9']*'.'['0'-'9']+) as lxm  { FLOATLIT(float_of_string lxm) }
 | '"' ((ascii | esc)* as s)'"'                                { STRINGLIT(s) }

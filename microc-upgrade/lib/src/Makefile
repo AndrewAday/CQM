@@ -10,9 +10,11 @@ CXXFLAGS = -g -Wall -fpic -O2 -march=native $(INCLUDES)
 
 COBJS = eigen_test_c.o
 
-all: libeigentest.so eigen_test
+all: libeigentest.so eigen_mnist.o
 
 eigen_test:
+
+eigen_mnist:
 
 libeigentest.so: eigen_test_lib.o
 	$(CXX) -shared eigen_test_lib.o -o libeigentest.so
@@ -21,9 +23,11 @@ eigen_test_lib.o: eigen_test.h
 
 eigen_test.o: eigen_test.h
 
+eigen_mnist.o: eigen_test.h
+
 .PHONY: clean
 clean:
-	rm -f *.o eigen_test && rm -rf *.dSYM
+	rm -f *.o eigen_test eigen_mnist && rm -rf *.dSYM
 
 .PHONY: cleanlib
 cleanlib:

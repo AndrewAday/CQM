@@ -26,6 +26,5 @@ int main()
   print_mat(arr[1]);
   print_mat(arr[0]);
 
-
   return 0;
 }

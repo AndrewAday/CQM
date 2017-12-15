@@ -7,7 +7,7 @@ open Ast
 
 %token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PERIOD LBRACK RBRACK BAR
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS DOT SLICE
-%token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
+%token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT NULL
 %token RETURN IF ELSE FOR WHILE EXTERN MAKE
 %token INT BOOL VOID FLOAT STRING IMATRIX FMATRIX STRUCT FPTR
 %token <int> INTLIT
@@ -136,14 +136,20 @@ typ_list:
     typ                    { [$1] }
   | typ_list COMMA typ { $3 :: $1 }
 
-/*============================================================================*/
-
 vdecl_list:
     /* nothing */    { [] }
   | vdecl_list vdecl { $2 :: $1 }
+  | vdecl_list multi_vdecl { $2 @ $1 }
 
 vdecl:
     typ ID SEMI                      { ($1, $2) }
+
+multi_vdecl:
+    typ SLICE id_list SEMI      { List.map (fun (id) -> ($1, id)) $3 }
+
+id_list:
+    ID                { [$1] }
+  | id_list COMMA ID  { $3 :: $1 }
 
 stmt_list:
     /* nothing */  { [] }
@@ -171,6 +177,7 @@ expr:
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
+  | NULL             { Null }
   | expr PLUS   expr { Binop($1, Add,     $3) }
   | expr MINUS  expr { Binop($1, Sub,     $3) }
   | expr TIMES  expr { Binop($1, Mult,    $3) }

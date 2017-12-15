@@ -43,6 +43,7 @@ type expr =
   | MatIndex of (string * expr * expr)
   | MatIndexAssign of (string * expr * expr * expr)
   (* | StructLit of (typ * (string * expr) list) *)
+  | Null
   | Noexpr
 
 type stmt =
