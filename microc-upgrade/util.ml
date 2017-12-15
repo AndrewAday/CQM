@@ -59,9 +59,9 @@ let rec string_of_expr = function
       string_of_expr v ^ "[" ^ string_of_expr e1 ^ ", " ^ string_of_expr e2 ^ "]"
   | Matassign(v, e1, e2, x) -> string_of_expr v ^ "[" ^ string_of_expr e1 ^
       ", " ^ string_of_expr e2 ^ "] = " ^ string_of_expr x
-  | TupLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"
-  | MatLit(el) -> "[" ^ String.concat "; " (List.map (fun e ->
-      String.concat ", " (List.map string_of_expr e)) el) ^ ";]" *)
+  | TupLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"*)
+  | MatLit(el) -> "[" ^ String.concat ", " (List.map (fun e ->
+      String.concat ", " (List.map string_of_expr e)) el) ^ ";]"
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""

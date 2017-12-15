@@ -10,7 +10,7 @@ type uop = Neg | Not | Transpose
 
 (* Types *)
 type primitive_type = Float | Int | Bool | Void | String |
-                      Tuple | Imatrix | Fmatrix 
+                      Tuple | Imatrix | Fmatrix
 type typ =
     PrimitiveType of primitive_type
   | StructType of string

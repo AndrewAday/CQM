@@ -104,8 +104,8 @@ let translate program =
   let printf_func = L.declare_function "printf" printf_t the_module in
 (*============================================================================*)
   (* TODO: jz matliteral *)
-  (* let init_fmat_literal_t = L.var_arg_function_type fmatrix_t [| L.pointer_type float_t; i32_t; i32_t; |] in
-  let init_fmat_literal_func = L.declare_function "init_fmat_literal" init_fmat_literal_t the_module in *)
+  let init_fmat_literal_t = L.var_arg_function_type fmatrix_t [| L.pointer_type float_t; i32_t; i32_t; |] in
+  let init_fmat_literal_func = L.declare_function "init_fmat_literal" init_fmat_literal_t the_module in
 
   (*
   Define each function (arguments and return type) so we can call it
@@ -317,10 +317,11 @@ let translate program =
       | A.FloatLit f          -> L.const_float float_t f
       | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
-      (* | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
-                               let m = Array.concat (List.map ravel a)
-                                 and r = List.length a and c = List.length (List.hd a) in
-                               (L.build_call init_fmat_literal_func [|m; r; c;|] "m_lit" builder) *)
+      | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
+                                 let m = Array.concat (List.map ravel a)
+                                  and r = L.const_int i32_t (List.length a)
+                                  and c = L.const_int i32_t (List.length (List.hd a)) in
+                               (L.build_call init_fmat_literal_func [|r; m; c;|] "m_lit" builder)
       | A.Noexpr              -> L.const_int i32_t 0
       | A.Id s                -> L.build_load (lookup_llval s) s builder
       | A.MakeArray(typ, e) ->

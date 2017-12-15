@@ -165,7 +165,7 @@ expr:
   | expr OR     expr { Binop($1, Or,    $3) }
   | expr DOT expr { Binop($1, Dot, $3)}
   | expr MATTRANS    { Unop(Transpose, $1) }
-  /*| LBRACK rows RBRACK                      { MatLit(List.rev $2) }*/
+
 /*  | LBRACK actuals_opt RBRACK                    { TupLit($2) } */
 /*  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { Matassign(Id($1),$3,$5,$8)} */
 /*  | ID LBRACK expr COMMA expr RBRACK             { Matselect(Id($1),$3,$5) } */
@@ -183,6 +183,7 @@ expr:
   | ID PERIOD ID      { StructAccess($1, $3) }
   | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
   | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
+  | LBRACK rows RBRACK                      { MatLit(List.rev $2) }
   | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
 
   /*TODO: struct array assign/access */
@@ -195,5 +196,5 @@ actuals_list:
   | actuals_list COMMA expr { $3 :: $1 }
 
  rows:
-    actuals_opt             { [$1] }
-  | rows COMMA actuals_opt   { $3 :: $1 }
+    LBRACK actuals_opt RBRACK              { [$2] }
+  | rows COMMA LBRACK actuals_opt RBRACK   { $4 :: $1 }
