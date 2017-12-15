@@ -115,6 +115,7 @@ let check program =
       | BoolLit _ -> PrimitiveType(Bool)
       | StringLit _ -> PrimitiveType(String)
       | Noexpr -> PrimitiveType(Void)
+      | Null -> PrimitiveType(Void)
       | Id s ->
         let ret_typ =
         try
@@ -241,6 +242,17 @@ let check program =
         check_assign lt rt ex
   (*============================= built in fns ===============================*)
       | Call("printf", _) -> PrimitiveType(Int)
+      | Call("time", _) -> PrimitiveType(Int)
+      | Call("float_of_int", [e]) as ex ->
+        let t = expr e in
+        if match_primitive [|Int|] t then PrimitiveType(Float)
+        else raise (Failure ("expected int, got type " ^ string_of_typ t ^ " in "
+                            ^ string_of_expr ex))
+      | Call("int_of_float", [e]) as ex ->
+        let t = expr e in
+        if match_primitive [|Float|] t then PrimitiveType(Int)
+        else raise (Failure ("expected float, got type " ^ string_of_typ t ^ " in "
+                            ^ string_of_expr ex))
       | Call("len", [e]) ->
         let t = expr e in
         if match_array t then PrimitiveType(Int)

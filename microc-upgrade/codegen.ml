@@ -126,6 +126,9 @@ let translate program =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
+  let time_t = L.var_arg_function_type i32_t [| L.pointer_type i32_t |] in
+  let time_func = L.declare_function "time" time_t the_module in
+
   (* let memset_t = L.function_type void_t [| i8_ptr_t; i32_t; i32_t|] in
   let memset = L.declare_function "memset" memset_t the_module in *)
 
@@ -452,6 +455,7 @@ let translate program =
                                  and r = List.length a and c = List.length (List.hd a) in
                                (L.build_call init_fmat_literal_func [|m; r; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
+      | A.Null                -> L.const_pointer_null void_t
       | A.Id s                ->
         let ret =
         try
@@ -598,6 +602,7 @@ let translate program =
       | A.Assign (s, e) -> (* TODO: matrix reassign *)
             let e' = expr builder e in
             ignore (L.build_store e' (lookup_llval s) builder); e'
+  (*============================= built in fns ===============================*)
       | A.Call ("printf", act) ->
          let actuals = List.map (expr builder) act in
   	     L.build_call
@@ -605,7 +610,16 @@ let translate program =
             (Array.of_list actuals)
             "printf"
             builder
-  (*============================= built in fns ===============================*)
+      | A.Call("time", []) ->
+          L.build_call
+             time_func
+             [| L.const_pointer_null (L.pointer_type i32_t) |]
+             "time"
+             builder
+      | A.Call("float_of_int", [e]) ->
+          L.build_sitofp (expr builder e) float_t "float_of_int" builder
+      | A.Call("int_of_float", [e]) ->
+          L.build_fptosi (expr builder e) i32_t "int_of_float" builder
       | A.Call("len", [e]) ->
         let arr_ptr = expr builder e in
         let is_null = L.build_is_null arr_ptr "null" builder in
