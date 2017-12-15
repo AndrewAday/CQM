@@ -469,6 +469,17 @@ let translate program =
         let struct_decl = get_struct_decl s_name in
         let real_method = U.methodify mthd_name struct_decl.A.name in
         expr builder (A.Call(real_method, (A.Id(s_name)) :: el))
+      | A.MatIndex(mat, e2, e3) ->
+        let fm = expr builder (A.Id(mat))
+        and i = expr builder e2
+        and j = expr builder e3 in
+        build_external "mat_index" [|fm; i; j|] builder
+      | A.MatIndexAssign(mat, e2, e3, e4) ->
+        let fm = expr builder (A.Id(mat))
+        and i = expr builder e2
+        and j = expr builder e3
+        and f = expr builder e4 in
+        build_external "mat_index_assign" [|fm; i; j; f|] builder
       | A.MakeArray(typ, e) ->
         let len = expr builder e
         and element_t =

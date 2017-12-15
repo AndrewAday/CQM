@@ -75,6 +75,11 @@ let rec string_of_expr = function
   | Pipe(e1, e2) -> string_of_expr e1 ^ " => " ^ string_of_expr e2
   | Dispatch(strct, mthd_name, el) ->
     strct ^ "." ^ mthd_name ^ ".(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
+  | MatIndex(mat, e2, e3) ->
+    mat ^ "[" ^ string_of_expr e2 ^ "," ^ string_of_expr e3 ^ "]"
+  | MatIndexAssign(mat, e2, e3, e4) ->
+    mat ^ "[" ^ string_of_expr e2 ^ "," ^ string_of_expr e3 ^ "]"
+    ^ " = " ^ string_of_expr e4
   (* | StructLit(typ, bind_list) -> ignore(bind_list); string_of_typ typ (* TODO: make this real lol *) *)
 let rec string_of_stmt = function
     Block(stmts) ->

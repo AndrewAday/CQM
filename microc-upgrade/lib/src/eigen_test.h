@@ -23,6 +23,11 @@ matrix_t copy(matrix_t);
 
 void del_mat(matrix_t);
 
+/* =============== Index and Slicing =============== */
+
+double mat_index(matrix_t, int, int);
+double mat_index_assign(matrix_t, int, int, double);
+
 /* =============== Binary Operations =============== */
 
 // Matrix-Matrix operations

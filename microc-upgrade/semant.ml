@@ -139,6 +139,23 @@ let check program =
         let s_decl = get_struct_decl s_name in
         let real_method = methodify mthd_name s_decl.name in
         expr (Call(real_method, (Id(s_name)) :: el))
+      | MatIndex(mat, e2, e3) as ex ->
+        let fm = (type_of_identifier mat)
+        and i = expr e2
+        and j = expr e3 in
+        if
+          match_primitive [|Fmatrix; Imatrix|] fm &&
+          match_primitive [|Int|] i &&
+          match_primitive [|Int|] j
+        then
+          if match_primitive [|Fmatrix|] fm
+          then PrimitiveType(Float)
+          else PrimitiveType(Int)
+        else
+          raise (Failure ("Illegal attempt to index matrix in expr " ^ string_of_expr ex))
+      | MatIndexAssign(mat, e2, e3, e4) as ex ->
+        let typ = expr (MatIndex(mat, e2, e3)) in
+        check_assign typ (expr e4) ex
       | MakeStruct (typ) as ex ->
           if match_struct typ then typ else
           raise (Failure  ("illegal make, must be type struct, in " ^ string_of_expr ex))

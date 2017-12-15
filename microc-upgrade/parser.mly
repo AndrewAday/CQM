@@ -5,7 +5,7 @@ open Ast
 %}
 
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PERIOD LBRACK RBRACK
+%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PERIOD LBRACK RBRACK BAR
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS DOT SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
 %token RETURN IF ELSE FOR WHILE EXTERN MAKE
@@ -171,7 +171,6 @@ expr:
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
-
   | expr PLUS   expr { Binop($1, Add,     $3) }
   | expr MINUS  expr { Binop($1, Sub,     $3) }
   | expr TIMES  expr { Binop($1, Mult,    $3) }
@@ -202,6 +201,8 @@ expr:
   | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE { ArrayLit($2, $5) }
   | expr PIPE expr { Pipe($1, $3) }
   | ID PERIOD ID LPAREN actuals_opt RPAREN { Dispatch($1, $3, $5) }
+  | ID LBRACK expr COMMA expr RBRACK { MatIndex($1, $3, $5) }
+  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { MatIndexAssign($1, $3, $5, $8) }
   /*| LPAREN struct_type RPAREN LBRACE struct_lit_opt RBRACE { StructLit($2, $5) }*/
 
 /*struct_lit_opt:

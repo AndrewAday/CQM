@@ -29,6 +29,19 @@ int cols(matrix_t undef_mptr){
 	return (*def_mptr).cols();
 }
 
+/* ============================ Index and Slicing ============================== */
+
+double mat_index(matrix_t undef_mptr, int r, int c) {
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	return (*def_mptr)(r,c);
+}
+
+double mat_index_assign(matrix_t undef_mptr, int r, int c, double f) {
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	(*def_mptr)(r,c) = f;
+	return f;
+}
+
 /* ============================= Matrix Inititialization =============================== */
 
 MatrixXd* init_fmat(const int d1, const int d2, const double c, const int op_id){

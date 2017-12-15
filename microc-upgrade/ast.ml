@@ -39,6 +39,8 @@ type expr =
   | ArrayLit of (typ * expr list)
   | Pipe of (expr * expr)
   | Dispatch of (string * string * (expr list))
+  | MatIndex of (string * expr * expr)
+  | MatIndexAssign of (string * expr * expr * expr)
   (* | StructLit of (typ * (string * expr) list) *)
   | Noexpr
 
