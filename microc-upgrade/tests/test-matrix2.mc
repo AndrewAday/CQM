@@ -9,8 +9,8 @@ int main(){
 
 	print_mat((fm1 + 1.0) + fm2);
 	fm1 = fm1 + 1.0;
-	print_mat((fm1 + 12.0) .. fm2);
-	print_mat(fm1 * fm2);
+	print_mat((fm1 + 12.0) .. fm2);  // matrix mult
+	print_mat(fm1 * fm2);	 // hadamard product
 
 
 	return 0;

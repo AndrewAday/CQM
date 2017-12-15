@@ -1,5 +1,8 @@
 extern void print_mat(fmatrix fm);
 
+extern float mat_index(fmatrix fm, int i, int j);
+extern float mat_index_assign(fmatrix fm, int i, int j, float f);
+
 extern int rows(fmatrix fm);
 extern int cols(fmatrix fm);
 extern fmatrix init_fmat_zero(int r, int c);

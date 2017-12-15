@@ -17,7 +17,7 @@ Compile() {
   echo ${basename}
   Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
   Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
-  Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-Llib/src" "-leigentest"
+  Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-Llib/src" "-leigentest" "-lm"
 }
 
 Compile $1

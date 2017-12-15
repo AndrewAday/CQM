@@ -7,7 +7,6 @@ let string_of_primitive_type = function
     | Bool -> "bool"
     | Void -> "void"
     | String -> "string"
-    | Tuple -> "tuple"
     | Imatrix -> "imatrix"
     | Fmatrix -> "fmatrix"
 
@@ -15,6 +14,7 @@ let rec string_of_typ = function
     PrimitiveType(t) -> string_of_primitive_type t
   | StructType(s)    -> "struct " ^ s
   | ArrayType(typ) -> (string_of_typ typ) ^ "[]"
+  | FptrType(typs) -> String.concat ", " (List.map string_of_typ typs)
 
 let string_of_op = function
     Add -> "+"
@@ -49,7 +49,7 @@ let rec string_of_expr = function
       string_of_expr e1 ^ " " ^ string_of_op o ^ " " ^ string_of_expr e2
   | Unop(o, e) -> string_of_uop o ^ string_of_expr e
   | Assign(v, e) -> v ^ " = " ^ string_of_expr e
-  (* | Pipe(v, e) -> string_of_expr v ^ " => " ^ string_of_expr e
+  (*
   | Slice(b, s, e) ->
       string_of_expr b ^ ":" ^ string_of_expr s ^ ":" ^ string_of_expr e
   | Tupselect(v, e) -> string_of_expr v ^ "[" ^ string_of_expr e ^ "]"
@@ -71,8 +71,16 @@ let rec string_of_expr = function
   | ArrayAssign(arr_name, e1, e2) -> arr_name ^ "[" ^ string_of_expr e1 ^ "]" ^ "=" ^ string_of_expr e2
   | MakeStruct(t) -> "make(" ^ string_of_typ t ^ ")"
   | MakeArray(t,e) -> "make(" ^ string_of_typ t ^ "," ^ string_of_expr e ^ ")"
-  | _ -> "UNKNOWN"
-
+  | ArrayLit(typ, el) -> "(" ^ string_of_typ typ ^ ") {" ^ String.concat ", " (List.map string_of_expr el) ^ "}"
+  | Pipe(e1, e2) -> string_of_expr e1 ^ " => " ^ string_of_expr e2
+  | Dispatch(strct, mthd_name, el) ->
+    strct ^ "." ^ mthd_name ^ ".(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
+  | MatIndex(mat, e2, e3) ->
+    mat ^ "[" ^ string_of_expr e2 ^ "," ^ string_of_expr e3 ^ "]"
+  | MatIndexAssign(mat, e2, e3, e4) ->
+    mat ^ "[" ^ string_of_expr e2 ^ "," ^ string_of_expr e3 ^ "]"
+    ^ " = " ^ string_of_expr e4
+  (* | StructLit(typ, bind_list) -> ignore(bind_list); string_of_typ typ (* TODO: make this real lol *) *)
 let rec string_of_stmt = function
     Block(stmts) ->
       "{\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ "}\n"
@@ -129,6 +137,11 @@ let rec check_asn_silent lvaluet rvaluet =
         (print_endline (s1 ^ s2); false)
     | (ArrayType(typ1), ArrayType(typ2)) ->
         if check_asn_silent typ1 typ2 then true else false
+    | (FptrType(fp1), FptrType(fp2)) ->
+        if List.length fp1 != List.length fp2 then
+          (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
+        else if fp1 = fp2 then true else
+          (print_endline (string_of_typ (FptrType(fp1)) ^ string_of_typ (FptrType(fp2))); false)
     | _ -> false
 
 (* Raise an exception of the given rvalue type cannot be assigned to
@@ -143,13 +156,17 @@ let check_assign lvaluet rvaluet expr =
 let check_func_param_assign lvaluet rvaluet err =
   if check_asn_silent lvaluet rvaluet then lvaluet else raise err
 
-let match_int = function
-      PrimitiveType(p) when p = Int -> true
-    | _ -> false
+let rec contains x = function
+    [] -> false
+  | hd :: tl -> if x = hd then true else contains x tl
 
-let match_bool = function
-      PrimitiveType(p) -> if p = Bool then true else false
-    | _ -> false
+let rec try_get x = function
+    [] -> None
+  | hd :: tl -> if x = hd then Some x else try_get x tl
+
+let match_primitive primitives = function
+    PrimitiveType(p) -> contains p (Array.to_list primitives)
+  | _ -> false
 
 let match_struct = function
     StructType(_) -> true
@@ -166,6 +183,11 @@ let report_duplicate exceptf lst =
     | _ :: t -> helper t
     | [] -> ()
   in helper (List.sort compare lst)
+
+let rec get_last = function
+  [t] -> t
+| _ :: tl -> get_last tl
+| _ -> raise (Failure "must be nonempty list")
 
 (*============================== Struct Checkers ============================ *)
 let check_struct_not_empty exceptf = function
@@ -205,6 +227,9 @@ let parse_struct_access s =
   let a = Array.of_list l in
   (a.(0), a.(1))
 
+(* foo.bar(), converts bar to __foo_bar(foo) *)
+let methodify mthd_name s_name = "__" ^ s_name ^ "_" ^ mthd_name
+
 (*============================== Array Checkers ============================= *)
 let check_array_or_throw typ a_name =
   if match_array typ then () else raise (Failure (a_name ^ " is not an array"))
@@ -221,5 +246,14 @@ let get_result_name f_name = function
     PrimitiveType(t) -> get_result_primitive_name f_name t
   | _ -> f_name ^ "_result"
 
+let parse_fptr_type typ_list =
+  let arg_typs = if List.length typ_list = 1 then [] else
+    (List.rev (List.tl (List.rev typ_list)))
+  in
+  let ret_typ = get_last typ_list in
+  (arg_typs, ret_typ)
 
 (*================================== Misc==================================== *)
+let try_get_id_str = function
+  Id(s) -> Some s
+| _ -> None

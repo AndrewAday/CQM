@@ -95,7 +95,7 @@ Check() {
     generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
     Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
-    Run "$CC" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-L lib/src" "-leigentest" &&
+    Run "$CC" "-O3" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "-L lib/src" "-leigentest" "-lm" &&
     Run "./${basename}.exe" > "${basename}.out" &&
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 

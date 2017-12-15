@@ -18,7 +18,24 @@ let _ =
   let channel = ref stdin in
   Arg.parse speclist (fun filename -> channel := open_in filename) usage_msg;
   let lexbuf = Lexing.from_channel !channel in
-  let ast = Parser.program Scanner.token lexbuf in
+  let ast =
+    try
+      Parser.program Scanner.token lexbuf
+    with exn ->
+      (
+        let curr = lexbuf.Lexing.lex_curr_p in
+        let line = curr.Lexing.pos_lnum in
+        let cnum = curr.Lexing.pos_cnum - curr.Lexing.pos_bol in
+        let tok = Lexing.lexeme lexbuf in
+        let failure_string = Scanf.unescaped(
+          "Exception: " ^ Printexc.to_string exn ^ "\n" ^
+          "Line number: " ^ (string_of_int line) ^ "\n" ^
+          "Character: " ^ (string_of_int cnum) ^  "\n" ^
+          "Token: " ^ tok
+        ) in
+        raise (Failure failure_string)
+      )
+  in
   Semant.check ast;
   (* ast; *)
   match !action with

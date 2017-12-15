@@ -2,20 +2,18 @@
 
 %{
 open Ast
-
 %}
 
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PERIOD LBRACK RBRACK
+%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA PERIOD LBRACK RBRACK BAR
 %token PLUS MINUS TIMES DIVIDE POW ASSIGN PIPE MOD MATTRANS DOT SLICE
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR NOT
 %token RETURN IF ELSE FOR WHILE EXTERN MAKE
-%token INT BOOL VOID FLOAT STRING IMATRIX FMATRIX TUPLE STRUCT
+%token INT BOOL VOID FLOAT STRING IMATRIX FMATRIX STRUCT FPTR
 %token <int> INTLIT
 %token <string> STRINGLIT
 %token <float> FLOATLIT
 %token <string> ID
-%token <string> PNTR
 %token EOF
 
 %nonassoc NOELSE
@@ -57,8 +55,27 @@ decls:
  | decls str_decl {{
                     global_vars = $1.global_vars;
                     functions = $1.functions;
-                    structs = $2 :: $1.structs;
+                    structs = List.rev ($2 :: (List.rev ($1.structs)));
                   }}
+ | decls str_mthd_decl {{
+                         global_vars = $1.global_vars;
+                         functions = $2 :: $1.functions;
+                         structs = $1.structs;
+                       }}
+str_mthd_decl:
+  LBRACK struct_name ID RBRACK ID LPAREN formals_opt RPAREN typ LBRACE vdecl_list stmt_list RBRACE
+    {{
+      typ         = $9;
+  	  fname       = "__" ^ $2 ^ "_" ^ $5;
+  	  formals     = (StructType($2), $3) :: $7;
+  	  locals      = List.rev $11;
+      body        = List.rev $12;
+      location    = Local;
+    }}
+
+struct_name:
+  STRUCT ID { $2 }
+
 str_decl:
   STRUCT ID LBRACE vdecl_list RBRACE
   {{
@@ -95,6 +112,7 @@ typ:
     primitive_type {PrimitiveType($1)}
   | struct_type    {$1}
   | array_type     {$1}
+  | fptr_type      {$1}
 
 primitive_type:
     INT     { Int }
@@ -104,13 +122,19 @@ primitive_type:
   | VOID    { Void }
   | IMATRIX { Imatrix }
   | FMATRIX { Fmatrix }
-  /*| TUPLE   { Tuple }*/
 
 struct_type:
     STRUCT ID { StructType($2) }
 
 array_type:
     typ LBRACK RBRACK { ArrayType($1) }
+
+fptr_type:
+    FPTR LPAREN typ_list RPAREN { FptrType(List.rev $3) }
+
+typ_list:
+    typ                    { [$1] }
+  | typ_list COMMA typ { $3 :: $1 }
 
 /*============================================================================*/
 
@@ -134,7 +158,6 @@ stmt:
   | IF LPAREN expr RPAREN stmt ELSE stmt      { If($3, $5, $7) }
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
                                               { For($3, $5, $7, $9) }
-
   | WHILE LPAREN expr RPAREN stmt             { While($3, $5) }
 
 expr_opt:
@@ -148,7 +171,6 @@ expr:
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | ID               { Id($1) }
-
   | expr PLUS   expr { Binop($1, Add,     $3) }
   | expr MINUS  expr { Binop($1, Sub,     $3) }
   | expr TIMES  expr { Binop($1, Mult,    $3) }
@@ -175,7 +197,6 @@ expr:
   | MINUS expr %prec NEG  { Unop(Neg, $2) }
   | NOT expr              { Unop(Not, $2) }
   | ID ASSIGN expr        { Assign($1, $3) }
-  /*| expr PIPE expr   { Pipe($1, $3) }*/
   | MAKE LPAREN typ RPAREN    { MakeStruct($3) }
   | MAKE LPAREN typ COMMA expr RPAREN { MakeArray($3, $5) }
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
@@ -185,6 +206,20 @@ expr:
   | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
   | LBRACK rows RBRACK                      { MatLit(List.rev $2) }
   | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
+  | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE { ArrayLit($2, $5) }
+  | expr PIPE expr { Pipe($1, $3) }
+  | ID PERIOD ID LPAREN actuals_opt RPAREN { Dispatch($1, $3, $5) }
+  | ID LBRACK expr COMMA expr RBRACK { MatIndex($1, $3, $5) }
+  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { MatIndexAssign($1, $3, $5, $8) }
+  /*| LPAREN struct_type RPAREN LBRACE struct_lit_opt RBRACE { StructLit($2, $5) }*/
+
+/*struct_lit_opt:
+    nothing { [] }
+  | struct_lit_list { List.rev $1 }*/
+
+/*struct_lit_list:
+    PERIOD ID ASSIGN expr { [($2, $4)] }
+  | struct_lit_list COMMA PERIOD ID ASSIGN expr { ($4, $6) :: $1 }*/
 
   /*TODO: struct array assign/access */
 actuals_opt:

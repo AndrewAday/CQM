@@ -29,7 +29,7 @@ let check program =
 (* TODO: struct empty fail test, struct duplicate fail test *)
 (* TODO: passing struct info function test *)
   List.iter (check_struct_not_empty (fun n -> "empty struct " ^ n)) structs;
-  List.iter (check_struct_no_nested (fun n -> "nested struct " ^ n)) structs;
+  (* List.iter (check_struct_no_nested (fun n -> "nested struct " ^ n)) structs; *)
   report_duplicate (fun n -> "duplicate struct name: " ^ n)
     (List.map (fun s -> s.name) structs);
 
@@ -37,7 +37,12 @@ let check program =
                       StringMap.empty structs in
 
 (*=========================== Checking Functions =============================*)
-  let built_in_keywords = Array.to_list [| "make"; "len"; "free"; "size"; |] in
+  let built_in_keywords = Array.to_list
+    [|
+      "make"; "len"; "free"; "free_arr"; "size"; "memset"; "memcpy";
+      "concat"; "append";
+    |]
+  in
 
   List.iter (fun fname ->
     if List.mem fname (List.map (fun fd -> fd.fname) functions)
@@ -64,6 +69,10 @@ let check program =
   let _ = function_decl "main" in (* Ensure "main" is defined *)
 
   let check_function func =
+
+    (* print_endline "hello";
+
+    List.iter (fun (t,s) -> print_endline (string_of_typ t ^ s)) func.formals; *)
 
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
@@ -106,12 +115,52 @@ let check program =
       | BoolLit _ -> PrimitiveType(Bool)
       | StringLit _ -> PrimitiveType(String)
       | Noexpr -> PrimitiveType(Void)
-      | Id s -> type_of_identifier s
+      | Id s ->
+        let ret_typ =
+        try
+          type_of_identifier s
+        with _ ->  (*try searching for function ptr *)
+          try
+            let fdecl = function_decl s in
+              let rt_typ = fdecl.typ
+              and form_typs = List.map (fun (typ, _) -> typ) fdecl.formals in
+                FptrType (List.append form_typs [rt_typ])
+          with _ -> raise (Failure ("undeclared identifier " ^ s))
+        in ret_typ
+      | Pipe (e1, e2) ->
+        begin
+          match e2 with
+            Call(fname, actuals) -> expr (Call(fname, e1 :: actuals))
+          | _ -> raise (Failure
+              ("cannot pipe " ^ string_of_expr e1 ^
+              " into expression" ^ string_of_expr e2))
+        end
+      | Dispatch(s_name, mthd_name, el) ->
+        let s_decl = get_struct_decl s_name in
+        let real_method = methodify mthd_name s_decl.name in
+        expr (Call(real_method, (Id(s_name)) :: el))
+      | MatIndex(mat, e2, e3) as ex ->
+        let fm = (type_of_identifier mat)
+        and i = expr e2
+        and j = expr e3 in
+        if
+          match_primitive [|Fmatrix; Imatrix|] fm &&
+          match_primitive [|Int|] i &&
+          match_primitive [|Int|] j
+        then
+          if match_primitive [|Fmatrix|] fm
+          then PrimitiveType(Float)
+          else PrimitiveType(Int)
+        else
+          raise (Failure ("Illegal attempt to index matrix in expr " ^ string_of_expr ex))
+      | MatIndexAssign(mat, e2, e3, e4) as ex ->
+        let typ = expr (MatIndex(mat, e2, e3)) in
+        check_assign typ (expr e4) ex
       | MakeStruct (typ) as ex ->
           if match_struct typ then typ else
           raise (Failure  ("illegal make, must be type struct, in " ^ string_of_expr ex))
       | MakeArray (typ, e) as ex ->
-          if match_int (expr e) then ArrayType(typ) else
+          if match_primitive [|Int|] (expr e) then ArrayType(typ) else
           raise (Failure  ("illegal make, must provide integer size, in " ^ string_of_expr ex))
       | StructAccess (s_name, member) -> ignore(type_of_identifier s_name); (*check it's declared *)
           let s_decl = get_struct_decl s_name in (* get the ast struct_decl type *)
@@ -132,6 +181,12 @@ let check program =
           check_array_or_throw t a_name;
           let arr_t = get_array_type t in
           check_assign arr_t expr_t ex
+      | ArrayLit(arr_type, expr_list) as ex ->
+        if match_array arr_type then
+          let inner_type = get_array_type arr_type in
+          List.iter (fun e -> ignore(check_assign inner_type (expr e) ex)) expr_list;
+          arr_type
+        else raise (Failure ("expected array type in expr " ^ string_of_expr ex))
       | Binop(e1, op, e2) as e -> let typ1 = expr e1 and typ2 = expr e2 in
         let ret =
         try
@@ -184,29 +239,74 @@ let check program =
         let lt = type_of_identifier var
         and rt = expr e in
         check_assign lt rt ex
-        (* TODO: add rules for struct and array assign *)
-      | Call("printf", _) -> PrimitiveType(Int)
   (*============================= built in fns ===============================*)
+      | Call("printf", _) -> PrimitiveType(Int)
       | Call("len", [e]) ->
         let t = expr e in
         if match_array t then PrimitiveType(Int)
         else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to len, must be array"))
+      | Call("free", [e]) ->
+        let t = expr e in
+        if (match_struct t || match_primitive [|Imatrix; Fmatrix|] t)
+        then PrimitiveType(Void)
+        else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to free, must be struct or matrix"))
+      | Call("free_arr", [e]) ->
+        let t = expr e in
+        if (match_array t)
+        then PrimitiveType(Void)
+        else raise (Failure ("Illegal argument of type " ^ string_of_typ t ^ " to free_arr, must be array"))
+      | Call("concat", [e1; e2]) as ex ->
+        let arr1 = expr e1
+        and arr2 = expr e2 in
+        if match_array arr1 && match_array arr2
+        then check_assign arr1 arr2 ex
+        else raise (Failure ("Illegal arguments of types " ^
+          string_of_typ arr1 ^ "and" ^ string_of_typ arr2 ^
+          " to concat, must be arrays"))
+      | Call("append", [e1; e2]) as ex ->
+        let arr = expr e1
+        and elem = expr e2 in
+        ignore (check_assign (get_array_type arr) elem ex); arr
+      | Call("rows", [e]) as ex ->
+        let fm = expr e in
+        if match_primitive [|Fmatrix|] fm
+        then PrimitiveType(Int)
+        else raise (Failure ("non matrix argument to rows in " ^ string_of_expr ex))
+      | Call("cols", [e]) as ex ->
+        let fm = expr e in
+        if match_primitive [|Fmatrix|] fm
+        then PrimitiveType(Int)
+        else raise (Failure ("non matrix argument to cols in " ^ string_of_expr ex))
   (*==========================================================================*)
-      | Call(fname, actuals) as call -> let fd = function_decl fname in
-         if List.length actuals != List.length fd.formals then
-           raise (Failure ("expecting " ^ string_of_int
-             (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
-         else
-           List.iter2 (fun (ft, _) e -> let et = expr e in
-              ignore (check_func_param_assign ft et
-                (Failure ("illegal actual argument found " ^ string_of_typ et ^
-                " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
-             fd.formals actuals;
-           fd.typ
-      | _ -> PrimitiveType(Void)  (*Not implemented *)
+      | Call(fname, actuals) as call ->
+        try (* first check if it is a function pointer arg *)
+          let var = type_of_identifier fname in
+            match var with
+              FptrType(fp) ->
+                let (args, rt) = parse_fptr_type fp in
+                  if List.length actuals != List.length args then
+                    raise (Failure ("Fail"))
+                  else
+                    List.iter2 (fun ft e -> let et = expr e in
+                      ignore (check_func_param_assign ft et (Failure ("Fail"))))
+                    args actuals;
+                  rt
+            | _ -> raise (Failure ("Fail"))
+        with _ ->
+          let fd = function_decl fname in
+           if List.length actuals != List.length fd.formals then
+             raise (Failure ("expecting " ^ string_of_int
+               (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
+           else
+             List.iter2 (fun (ft, _) e -> let et = expr e in
+                ignore (check_func_param_assign ft et
+                  (Failure ("illegal actual argument found " ^ string_of_typ et ^
+                  " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+               fd.formals actuals;
+             fd.typ
     in
 
-    let check_bool_expr e = if not (match_bool (expr e))
+    let check_bool_expr e = if not (match_primitive [|Bool|] (expr e))
      then raise (Failure (
        "expected Boolean expression in " ^ string_of_expr e
        ))
