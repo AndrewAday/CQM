@@ -205,6 +205,8 @@ expr:
   | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
   | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
   | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
+  | ID PERIOD ID LBRACK expr RBRACK  { StructArrayAccess($1, $3, $5) }
+  | ID PERIOD ID LBRACK expr RBRACK ASSIGN expr  { StructArrayAssign($1, $3, $5, $8) }
   | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE { ArrayLit($2, $5) }
   | expr PIPE expr { Pipe($1, $3) }
   | ID PERIOD ID LPAREN actuals_opt RPAREN { Dispatch($1, $3, $5) }

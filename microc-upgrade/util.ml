@@ -81,6 +81,10 @@ let rec string_of_expr = function
   | MatIndexAssign(mat, e2, e3, e4) ->
     mat ^ "[" ^ string_of_expr e2 ^ "," ^ string_of_expr e3 ^ "]"
     ^ " = " ^ string_of_expr e4
+  | StructArrayAccess(strct, member, idx) -> strct ^ "." ^ member ^ "[" ^ string_of_expr idx ^ "]"
+  | StructArrayAssign(strct, member, idx, e) ->
+    strct ^ "." ^ member ^ "[" ^ string_of_expr idx ^ "] = " ^ string_of_expr e 
+
   (* | StructLit(typ, bind_list) -> ignore(bind_list); string_of_typ typ (* TODO: make this real lol *) *)
 let rec string_of_stmt = function
     Block(stmts) ->

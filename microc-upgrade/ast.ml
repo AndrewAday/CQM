@@ -41,6 +41,8 @@ type expr =
   | Dispatch of (string * string * (expr list))
   | MatIndex of (string * expr * expr)
   | MatIndexAssign of (string * expr * expr * expr)
+  | StructArrayAccess of (string * string * expr)
+  | StructArrayAssign of (string * string * expr * expr)
   (* | StructLit of (typ * (string * expr) list) *)
   | Null
   | Noexpr

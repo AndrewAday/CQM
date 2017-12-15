@@ -568,6 +568,40 @@ let translate program =
           ignore (L.build_store assign_val arr_gep builder)
         ) expr_list;
         arr_ptr
+     | A.StructArrayAccess(s_name, member, e) ->
+       let struct_member = expr builder (A.StructAccess(s_name, member))
+       and idx = expr builder e
+       and llname = s_name ^ "." ^ member ^ "[]"
+       and struct_decl = get_struct_decl s_name in
+       let arr_gep = L.build_in_bounds_gep struct_member [|idx|] llname builder in
+       let arr_typ = U.get_struct_member_type struct_decl member "not found" in
+       let arr_inner_typ = U.get_array_type arr_typ in
+       (* If it's a pointer type, i.e. struct/array don't load *)
+       if U.match_struct arr_inner_typ || U.match_array arr_inner_typ then arr_gep
+       else L.build_load arr_gep (llname ^ "_load") builder
+     | A.StructArrayAssign(s_name, member, e1, e2) ->
+       let struct_member = expr builder (A.StructAccess(s_name, member))
+       and idx = expr builder e1
+       and assign_val = expr builder e2
+       and llname = s_name ^ "." ^ member ^ "[]"
+       (* and struct_decl = get_struct_decl s_name  *)
+       in
+       let arr_gep = L.build_in_bounds_gep struct_member [|idx|] llname builder in
+       (
+         match get_struct_pointer_lltype assign_val with
+           Some struct_ptr ->
+            let elem_type = L.element_type struct_ptr in
+            let elem_sz = L.size_of elem_type in
+            let restore_ptr =
+            (
+              match (U.try_get_id_str e2) with
+                Some s -> Some (lookup_llval s)
+                (*TODO: match case for struct literals *)
+              | None -> None
+            ) in
+            arr_copy_and_free arr_gep assign_val elem_sz restore_ptr builder
+         | None -> L.build_store assign_val arr_gep builder
+      )
      | A.Binop (e1, op, e2)  ->
          let e1' = expr builder e1 and e2' = expr builder e2 in
          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
