@@ -267,6 +267,16 @@ let check program =
         let arr = expr e1
         and elem = expr e2 in
         ignore (check_assign (get_array_type arr) elem ex); arr
+      | Call("rows", [e]) as ex ->
+        let fm = expr e in
+        if match_primitive [|Fmatrix|] fm
+        then PrimitiveType(Int)
+        else raise (Failure ("non matrix argument to rows in " ^ string_of_expr ex))
+      | Call("cols", [e]) as ex ->
+        let fm = expr e in
+        if match_primitive [|Fmatrix|] fm
+        then PrimitiveType(Int)
+        else raise (Failure ("non matrix argument to cols in " ^ string_of_expr ex))
   (*==========================================================================*)
       | Call(fname, actuals) as call ->
         try (* first check if it is a function pointer arg *)

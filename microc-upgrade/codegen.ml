@@ -637,6 +637,12 @@ let translate program =
         let left_arr_ptr = expr builder e1
         and right_arr_ptr = expr builder e2 in
         array_concat left_arr_ptr right_arr_ptr builder
+      | A.Call("rows", [e]) ->
+        let fm = expr builder e in
+        build_external "rows" [|fm|] builder
+      | A.Call("cols", [e]) ->
+        let fm = expr builder e in
+        build_external "cols" [|fm|] builder
   (*==========================================================================*)
       | A.Call (f_name, act) ->
         let actuals = Array.of_list (List.rev (List.map (expr builder) (List.rev act))) in
