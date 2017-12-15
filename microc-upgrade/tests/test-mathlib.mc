@@ -1,6 +1,7 @@
 int main()
 {
   float f;
+  int i;
 
   f = 2.0;
 
@@ -18,8 +19,17 @@ int main()
   print_float(fabs(f));
   print_float(exp(f));
   print_float(log(f));
-  print_float(log10(f)); 
+  print_float(log10(f));
   print_float(sqrt(f));
+
+  /*
+  f = 0.;
+  for (i = 0; i < 1000000; i = i + 1) {
+    f = f + rand_norm(0.0, 1.0);
+  }
+  print_float(f);
+  printf("avg: %f\n", f / 1000000.);
+  */
 
   return 0;
 }

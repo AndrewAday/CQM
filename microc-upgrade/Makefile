@@ -16,6 +16,7 @@ microc.native :
 eigenlib :
 	cd lib/src && make
 	ln -s lib/src/libeigentest.so libeigentest.so
+	cp lib/src/eigen_mnist.o eigen_mnist.o
 # "make clean" removes all generated files
 
 .PHONY : clean
@@ -24,7 +25,8 @@ clean :
 	rm -rf testall.log *.diff microc scanner.ml parser.ml parser.mli
 	rm -rf printbig
 	rm -rf *.cmx *.cmi *.cmo *.cmx *.o *.s *.ll *.out *.exe *.so *.err
-	cd lib/src && make clean && make cleanlib
+	-cd demos && make clean
+	-cd lib/src && make clean && make cleanlib
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind to locate LLVM
 OBJS = ast.cmx codegen.cmx parser.cmx scanner.cmx semant.cmx microc.cmx util.cmx
