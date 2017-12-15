@@ -14,4 +14,38 @@ extern float exp(float x);
 extern float log(float x);  // this is natural log
 extern float log10(float x); // base 10 log
 extern float pow(float x, float y);
+
+extern int rand();
+extern void srand(int seed);
+
 float sqrt(float x) { return pow(x, 0.5); }
+
+/*
+sample from normal distribution using two uniform variables.
+Code found at:  https://phoxis.org/2013/05/04/generating-random-numbers-from-normal-distribution-in-c/
+*/
+
+float rand_norm(float mu, float sigma) {
+  float: U1, U2, W, mult, X1, X2;
+  float RAND_MAX;
+
+  RAND_MAX = 2147483647.0;
+
+  srand(time());  // seed the random generator
+
+  U1 = -1. + (float_of_int(rand()) / RAND_MAX) * 2.;
+  U2 = -1. + (float_of_int(rand()) / RAND_MAX) * 2.;
+  W = pow(U1, 2.) + pow(U2, 2.);
+
+  while (W >= 1. || W == 0.) {
+    U1 = -1. + (float_of_int(rand()) / RAND_MAX) * 2.;
+    U2 = -1. + (float_of_int(rand()) / RAND_MAX) * 2.;
+    W = pow(U1, 2.) + pow(U2, 2.);
+  }
+
+  mult = sqrt((-2. * log(W)) / W);
+  X1 = U1 * mult;
+  X2 = U2 * mult;
+
+  return (mu + sigma * X1);
+}
