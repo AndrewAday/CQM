@@ -18,7 +18,7 @@ matrix_t init_fmat_zero(int, int);
 matrix_t init_fmat_const(double, int, int);
 matrix_t init_fmat_identity(int, int);
 matrix_t init_fmat_literal(double *, int, int);
-
+matrix_t map(matrix_t, double (*f_ptr)(double));
 matrix_t copy(matrix_t);
 
 void del_mat(matrix_t);

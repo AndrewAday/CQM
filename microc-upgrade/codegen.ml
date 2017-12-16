@@ -450,11 +450,11 @@ let translate program =
       | A.FloatLit f          -> L.const_float float_t f
       | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
-      | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
+      (* | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
                                  let m = Array.concat (List.map ravel a)
                                   and r = L.const_int i32_t (List.length a)
                                   and c = L.const_int i32_t (List.length (List.hd a)) in
-                               (L.build_call init_fmat_literal_func [|r; m; c;|] "m_lit" builder)
+                               (L.build_call init_fmat_literal_func [|r; m; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
       | A.Null                -> L.const_pointer_null void_t
       | A.Id s                ->

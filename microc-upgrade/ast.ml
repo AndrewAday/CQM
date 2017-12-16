@@ -9,8 +9,8 @@ type uop = Neg | Not | Transpose
 (* type struct_access = string * string *)
 
 (* Types *)
-type primitive_type = Float | Int | Bool | Void | String |
-                      Tuple | Imatrix | Fmatrix
+type primitive_type = Float | Int | Bool | Void | String | Imatrix | Fmatrix
+                      (* Tuple *)
 type typ =
     PrimitiveType of primitive_type
   | StructType of string
@@ -40,6 +40,7 @@ type expr =
   | ArrayLit of (typ * expr list)
   | Pipe of (expr * expr)
   | Dispatch of (string * string * (expr list))
+  | MatLit of (expr list list)
   | MatIndex of (string * expr * expr)
   | MatIndexAssign of (string * expr * expr * expr)
   (* | StructLit of (typ * (string * expr) list) *)

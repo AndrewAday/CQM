@@ -29,6 +29,15 @@ int cols(matrix_t undef_mptr){
 	return (*def_mptr).cols();
 }
 
+matrix_t map(matrix_t undef_mptr, double (*f_ptr)(double)){
+	MatrixXd* def_mptr = mat_cast(undef_mptr);
+	MatrixXd* tmp_mptr = new MatrixXd;
+	*tmp_mptr =  (*def_mptr).unaryExpr(f_ptr);
+	return tmp_mptr;
+
+
+}
+
 /* ============================ Index and Slicing ============================== */
 
 double mat_index(matrix_t undef_mptr, int r, int c) {

@@ -10,6 +10,7 @@ extern fmatrix init_fmat_const(float s, int r, int c);
 extern fmatrix init_fmat_identity(int r, int c);
 
 extern fmatrix copy(fmatrix fm);
+extern fmatrix map(fmatrix fm, fp (float, float) f_ptr);
 
 extern fmatrix mm_add(fmatrix fm1, fmatrix fm2);
 extern fmatrix mm_sub(fmatrix fm1, fmatrix fm2);
