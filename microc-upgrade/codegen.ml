@@ -442,6 +442,7 @@ let translate program =
       ret_ptr
     in
 
+
     (* ==================================================================== *)
 
     (* Construct code for an expression; return its value *)
@@ -450,11 +451,6 @@ let translate program =
       | A.FloatLit f          -> L.const_float float_t f
       | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
-      (* | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
-                                 let m = Array.concat (List.map ravel a)
-                                  and r = L.const_int i32_t (List.length a)
-                                  and c = L.const_int i32_t (List.length (List.hd a)) in
-                               (L.build_call init_fmat_literal_func [|r; m; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
       | A.Null                -> L.const_pointer_null void_t
       | A.Id s                ->
@@ -569,6 +565,11 @@ let translate program =
           ignore (L.build_store assign_val arr_gep builder)
         ) expr_list;
         arr_ptr
+    | A.MatLit m ->
+        let r = expr builder (A.IntLit(List.length m))
+        and c = expr builder (A.IntLit(List.length (List.hd m)))
+        and a = expr builder (A.ArrayLit(A.ArrayType(A.PrimitiveType(A.Float)), List.concat m)) in
+        (L.build_call init_fmat_literal_func [|a; r; c;|] "m_lit" builder)
      | A.Binop (e1, op, e2)  ->
          let e1' = expr builder e1 and e2' = expr builder e2 in
          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
