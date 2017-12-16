@@ -10,6 +10,7 @@ type uop = Neg | Not | Transpose
 
 (* Types *)
 type primitive_type = Float | Int | Bool | Void | String | Imatrix | Fmatrix
+                      (* Tuple *)
 type typ =
     PrimitiveType of primitive_type
   | StructType of string
@@ -39,6 +40,7 @@ type expr =
   | ArrayLit of (typ * expr list)
   | Pipe of (expr * expr)
   | Dispatch of (string * string * (expr list))
+  | MatLit of (expr list list)
   | MatIndex of (string * expr * expr)
   | MatIndexAssign of (string * expr * expr * expr)
   | StructArrayAccess of (string * string * expr)

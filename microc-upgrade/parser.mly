@@ -192,27 +192,28 @@ expr:
   | expr GEQ    expr { Binop($1, Geq,   $3) }
   | expr AND    expr { Binop($1, And,   $3) }
   | expr OR     expr { Binop($1, Or,    $3) }
-  | expr DOT expr { Binop($1, Dot, $3)}
+  | expr DOT expr    { Binop($1, Dot, $3)}
   | expr MATTRANS    { Unop(Transpose, $1) }
-  | MINUS expr %prec NEG  { Unop(Neg, $2) }
-  | NOT expr              { Unop(Not, $2) }
-  | ID ASSIGN expr        { Assign($1, $3) }
-  | MAKE LPAREN typ RPAREN    { MakeStruct($3) }
-  | MAKE LPAREN typ COMMA expr RPAREN { MakeArray($3, $5) }
-  | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
-  | LPAREN expr RPAREN { $2 }
-  | ID PERIOD ID      { StructAccess($1, $3) }
-  | ID PERIOD ID ASSIGN expr { StructAssign($1, $3, $5) }
-  | ID LBRACK expr RBRACK    { ArrayAccess($1, $3) }
-  | ID LBRACK expr RBRACK ASSIGN expr { ArrayAssign($1, $3, $6) }
-  | ID PERIOD ID LBRACK expr RBRACK  { StructArrayAccess($1, $3, $5) }
-  | ID PERIOD ID LBRACK expr RBRACK ASSIGN expr  { StructArrayAssign($1, $3, $5, $8) }
-  | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE { ArrayLit($2, $5) }
-  | expr PIPE expr { Pipe($1, $3) }
-  | ID PERIOD ID LPAREN actuals_opt RPAREN { Dispatch($1, $3, $5) }
-  | ID LBRACK expr COMMA expr RBRACK { MatIndex($1, $3, $5) }
-  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr { MatIndexAssign($1, $3, $5, $8) }
-  /*| LPAREN struct_type RPAREN LBRACE struct_lit_opt RBRACE { StructLit($2, $5) }*/
+  | MINUS expr %prec NEG                                  { Unop(Neg, $2) }
+  | NOT expr                                              { Unop(Not, $2) }
+  | ID ASSIGN expr                                        { Assign($1, $3) }
+  | MAKE LPAREN typ RPAREN                                { MakeStruct($3) }
+  | MAKE LPAREN typ COMMA expr RPAREN                     { MakeArray($3, $5) }
+  | ID LPAREN actuals_opt RPAREN                          { Call($1, $3) }
+  | LPAREN expr RPAREN                                    { $2 }
+  | ID PERIOD ID                                          { StructAccess($1, $3) }
+  | ID PERIOD ID ASSIGN expr                              { StructAssign($1, $3, $5) }
+  | ID LBRACK expr RBRACK                                 { ArrayAccess($1, $3) }
+  | LBRACK rows RBRACK                                    { MatLit(List.rev $2) }
+  | ID LBRACK expr RBRACK ASSIGN expr                     { ArrayAssign($1, $3, $6) }
+  | LPAREN array_type RPAREN LBRACE actuals_opt RBRACE    { ArrayLit($2, $5) }
+  | expr PIPE expr                                        { Pipe($1, $3) }
+  | ID PERIOD ID LPAREN actuals_opt RPAREN                { Dispatch($1, $3, $5) }
+  | ID LBRACK expr COMMA expr RBRACK                      { MatIndex($1, $3, $5) }
+  | ID LBRACK expr COMMA expr RBRACK ASSIGN expr          { MatIndexAssign($1, $3, $5, $8) }
+  | ID PERIOD ID LBRACK expr RBRACK                       { StructArrayAccess($1, $3, $5) }
+  | ID PERIOD ID LBRACK expr RBRACK ASSIGN expr           { StructArrayAssign($1, $3, $5, $8) }
+  /*| LPAREN struct_type RPAREN LBRACE struct_lit_opt RBRACE                              { StructLit($2, $5) }*/
 
 /*struct_lit_opt:
     nothing { [] }
@@ -222,7 +223,6 @@ expr:
     PERIOD ID ASSIGN expr { [($2, $4)] }
   | struct_lit_list COMMA PERIOD ID ASSIGN expr { ($4, $6) :: $1 }*/
 
-  /*TODO: struct array assign/access */
 actuals_opt:
     /* nothing */ { [] }
   | actuals_list  { List.rev $1 }
@@ -231,6 +231,6 @@ actuals_list:
     expr                    { [$1] }
   | actuals_list COMMA expr { $3 :: $1 }
 
- /*rows:
-    actuals_opt             { [$1] }
-  | rows COMMA actuals_opt   { $3 :: $1 }*/
+ rows:
+    LBRACK actuals_opt RBRACK              { [$2] }
+  | rows COMMA LBRACK actuals_opt RBRACK   { $4 :: $1 }
