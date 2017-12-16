@@ -190,6 +190,19 @@ let check program =
           List.iter (fun e -> ignore(check_assign inner_type (expr e) ex)) expr_list;
           arr_type
         else raise (Failure ("expected array type in expr " ^ string_of_expr ex))
+      | StructArrayAccess(s_name, member, idx_expr) as ex ->
+        let t = expr (StructAccess(s_name, member))
+        and idx = expr idx_expr in
+        if match_array t && match_primitive [|Int|] idx then get_array_type t
+        else raise (Failure ("struct field is not an array in " ^ string_of_expr ex))
+      | StructArrayAssign(s_name, member, idx_expr, e) as ex ->
+        let t = expr (StructAccess(s_name, member))
+        and idx = expr idx_expr in
+        if match_array t && match_primitive [|Int|] idx
+        then
+          let inner_t = get_array_type t in
+          check_assign inner_t (expr e) ex
+        else raise (Failure ("struct field is not an array in " ^ string_of_expr ex))
       | Binop(e1, op, e2) as e -> let typ1 = expr e1 and typ2 = expr e2 in
         let ret =
         try
@@ -255,6 +268,7 @@ let check program =
         if match_primitive [|Float|] t then PrimitiveType(Int)
         else raise (Failure ("expected float, got type " ^ string_of_typ t ^ " in "
                             ^ string_of_expr ex))
+      | Call("is_null", _)  -> PrimitiveType(Bool)
       | Call("len", [e]) ->
         let t = expr e in
         if match_array t then PrimitiveType(Int)

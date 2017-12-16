@@ -8,10 +8,6 @@ extern int load_mnist_data(
 int main()
 {
   int ret;
-  int idx;
-  int i;
-  int j;
-  float val;
   fmatrix[] dst_fm_images;
   fmatrix[] dst_fm_labels;
   fmatrix fm;
@@ -31,24 +27,8 @@ int main()
 
   printf("returned with value: %d\n", ret);
 
-
-  for (i = 0; i < 28; i = i + 1) {
-    for (j = 0; j < 28; j = j + 1) {
-      idx = 28*i + j;
-      fm = dst_fm_images[6794];
-      val = fm[idx, 0];
-      if (val > 0.01) {
-        printf("[0]");
-      } else {
-        printf("[ ]");
-      }
-      if (j == 27) {
-        printf("\n");
-      }
-    }
-  }
-
-  print_mat(dst_fm_labels[6794]);
+  print_mnist_image(dst_fm_images[49999]);
+  print_mat(dst_fm_labels[49999]);
 
   return 0;
 }

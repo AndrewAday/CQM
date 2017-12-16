@@ -19,6 +19,20 @@ extern int rand();
 extern void srand(int seed);
 
 float sqrt(float x) { return pow(x, 0.5); }
+float square(float x) { return pow(x, 2.); }
+float max(float x, float y) {
+  if (x >= y) {
+    return x;
+  }
+  return y;
+}
+
+int min_int(int x, int y) {
+  if (x > y) {
+    return y;
+  }
+  return x;
+}
 
 /*
 sample from normal distribution using two uniform variables.
@@ -30,8 +44,6 @@ float rand_norm(float mu, float sigma) {
   float RAND_MAX;
 
   RAND_MAX = 2147483647.0;
-
-  srand(time());  // seed the random generator
 
   U1 = -1. + (float_of_int(rand()) / RAND_MAX) * 2.;
   U2 = -1. + (float_of_int(rand()) / RAND_MAX) * 2.;
@@ -48,4 +60,24 @@ float rand_norm(float mu, float sigma) {
   X2 = U2 * mult;
 
   return (mu + sigma * X1);
+}
+
+float sigmoid(float z) {
+    return 1.0 / (1.0 + exp(-z));
+}
+
+float sigmoid_prime(float z) {
+  return sigmoid(z) * (1. - sigmoid(z));
+}
+
+void shuffle(int[] arr) {
+  int: i, j, k, n, RAND_MAX;
+  RAND_MAX = 2147483647;
+  n = len(arr);
+  for (i = 0; i < n - 1; i = i + 1) {
+    j = i + rand() / (RAND_MAX / (n - i) + 1);
+    k = arr[j];
+    arr[j] = arr[i];
+    arr[i] = k;
+  }
 }
