@@ -96,7 +96,7 @@ MatrixXd* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, double s
 		// matrix-matrix division
 		case 3: *tmp_mptr = (*def_mptr1).cwiseQuotient(*def_mptr2); break;
 		// matrix-matrix dot product
-		case 4: *tmp_mptr = *def_mptr1 * *def_mptr2; break;
+		case 4: (*tmp_mptr).noalias() = ((*def_mptr1) * (*def_mptr2)); break;
 
 		/* ======================== Scalar Matrix Operations ========================= */
 
@@ -134,8 +134,10 @@ matrix_t sm_add(matrix_t undef_mptr, double s)					{ return binary_operations(un
 matrix_t sm_sub(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 6) :
 																	   																	 binary_operations(undef_mptr, s, 7) ; }
 matrix_t sm_mult(matrix_t undef_mptr, double s)					{ return binary_operations(undef_mptr, s, 8); }
-matrix_t sm_div(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 9) :
-																	   																	 binary_operations(undef_mptr, s, 10) ; }
+// matrix_t sm_div(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 9) :
+// 																	   																	 binary_operations(undef_mptr, s, 10) ; }
+
+matrix_t sm_div(matrix_t undef_mptr, double s)	{ return binary_operations(undef_mptr, s, 9); }
 
 
 
