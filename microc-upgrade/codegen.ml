@@ -654,6 +654,10 @@ let translate program =
           L.build_sitofp (expr builder e) float_t "float_of_int" builder
       | A.Call("int_of_float", [e]) ->
           L.build_fptosi (expr builder e) i32_t "int_of_float" builder
+      | A.Call("is_null", [e]) ->
+          let null = L.build_is_null (expr builder e) "null" builder in
+          L.build_select null (L.const_int i1_t 1) (L.const_int i1_t 0)
+            "test_null" builder
       | A.Call("len", [e]) ->
         let arr_ptr = expr builder e in
         let is_null = L.build_is_null arr_ptr "null" builder in
@@ -666,6 +670,8 @@ let translate program =
       | A.Call("free", [e]) ->
         let ptr = expr builder e in
         L.build_free ptr builder
+        (* let lltype = L.type_of ptr in
+        L.build_store (L.const_null lltype) ptr builder *)
       | A.Call("free_arr", [e]) ->
       (* we have to make a separate free for arrays to know to move ptr back
       8 bytes so we can free metadata *)

@@ -266,6 +266,7 @@ let check program =
         if match_primitive [|Float|] t then PrimitiveType(Int)
         else raise (Failure ("expected float, got type " ^ string_of_typ t ^ " in "
                             ^ string_of_expr ex))
+      | Call("is_null", _)  -> PrimitiveType(Bool)
       | Call("len", [e]) ->
         let t = expr e in
         if match_array t then PrimitiveType(Int)
