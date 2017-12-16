@@ -8,6 +8,7 @@ extern int cols(fmatrix fm);
 extern fmatrix init_fmat_zero(int r, int c);
 extern fmatrix init_fmat_const(float s, int r, int c);
 extern fmatrix init_fmat_identity(int r, int c);
+extern fmatrix arr_to_fmat(float[] arr, int t, int c);
 
 extern fmatrix copy(fmatrix fm);
 extern fmatrix map(fmatrix fm, fp (float, float) f_ptr);
