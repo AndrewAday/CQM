@@ -67,17 +67,25 @@ struct backprop_deltas {
 
 [struct fc_model fc] predict(fmatrix X) fmatrix {
   int i;
-  fmatrix fm;
+  fmatrix: fm, tmp1, tmp2;
   for (i = 0; i < len(fc.weights); i = i + 1) {
-    X = ((fc.weights[i] .. X) + fc.biases[i]) => f_fmat(fc.activate);
+    tmp1 = fc.weights[i] .. X;
+    tmp2 = tmp1 + fc.biases[i];
+    X = tmp2 => f_fmat(fc.activate);
+    free(tmp1); free(tmp2);
   }
   return X;
 }
 
 /* Zeros the update matrices for next minibatch */
-[struct fc_model fc] zero_deltas(fmatrix[] weights, fmatrix[] biases) void {
+[struct fc_model fc] zero_deltas(
+  fmatrix[] weights, fmatrix[] biases, bool should_free) void {
   int i;
   for (i = 0; i < len(fc.weights); i = i + 1) {
+    if (should_free) {
+      free(weights[i]);
+      free(biases[i]);
+    }
     weights[i] = init_fmat_zero(
       rows(fc.weights[i]), cols(fc.weights[i])
     );
@@ -88,15 +96,17 @@ struct backprop_deltas {
 }
 
 [struct fc_model fc] train() void {
+  bool should_free;
   int: mini, e, i, train_idx, train_size, l;
   struct backprop_deltas bpds;
   fmatrix[]: sum_weight_deltas, sum_bias_deltas;
+  fmatrix: tmp1, tmp2, tmp3, tmp4;
   int[] train_indices;
 
   /* initialize training indices */
   train_size = len(fc.train_x);
-  train_indices = make(int, len(fc.train_x));
-  for (i = 0; i < len(fc.train_x); i = i + 1) {
+  train_indices = make(int, train_size);
+  for (i = 0; i < train_size; i = i + 1) {
     train_indices[i] = i;
   }
 
@@ -105,6 +115,7 @@ struct backprop_deltas {
   fc.init_biases();
   sum_weight_deltas = make(fmatrix, len(fc.weights));
   sum_bias_deltas = make(fmatrix, len(fc.biases));
+  should_free = false;
 
   /* initialize delta matrices */
   bpds = make(struct backprop_deltas);
@@ -117,32 +128,47 @@ struct backprop_deltas {
     train_idx = 0;
     shuffle(train_indices);
 
-    while (train_idx < len(fc.train_x)) {
+    while (train_idx < train_size) {
       // printf("data %d/%d\n", train_idx, train_size);
-      fc.zero_deltas(sum_weight_deltas, sum_bias_deltas);
+      fc.zero_deltas(sum_weight_deltas, sum_bias_deltas, should_free);
       /* accumulate over mini patch */
+
       for (
         mini = train_idx;
         mini < min_int(train_idx + fc.mini_batch_size, train_size);
         mini = mini + 1
       ) {
+
         i = train_indices[mini];
-        fc.backprop(fc.train_x[i], fc.train_y[i], bpds);
+        fc.backprop(fc.train_x[i], fc.train_y[i], bpds, should_free);
         for (l = 0; l < len(sum_weight_deltas); l = l+1) {
+          tmp1 = sum_weight_deltas[l];
+          tmp2 = sum_bias_deltas[l];
           sum_weight_deltas[l] = sum_weight_deltas[l] + bpds.weight_deltas[l];
           sum_bias_deltas[l] = sum_bias_deltas[l] + bpds.bias_deltas[l];
+          free(tmp1);
+          free(tmp2);
         }
+        should_free = true;  // everything has been initialized once, now free
+
       }
 
       /* update network weights */
       for (l = 0; l < len(sum_weight_deltas); l = l + 1) {
         /* normalize */
+        tmp1 = sum_weight_deltas[l];
+        tmp2 = sum_bias_deltas[l];
         sum_weight_deltas[l] =
           sum_weight_deltas[l] * (fc.learning_rate / float_of_int(fc.mini_batch_size));
         sum_bias_deltas[l] =
           sum_bias_deltas[l] * (fc.learning_rate / float_of_int(fc.mini_batch_size));
+        free(tmp1);
+        free(tmp2);
+        tmp3 = fc.weights[l];
+        tmp4 = fc.biases[l];
         fc.weights[l] = fc.weights[l] - sum_weight_deltas[l];
         fc.biases[l] = fc.biases[l] - sum_bias_deltas[l];
+        free(tmp3); free(tmp4);
       }
       train_idx = train_idx + fc.mini_batch_size;
     }
@@ -160,6 +186,7 @@ struct backprop_deltas {
     out = fc.predict(fc.test_x[i]);
     pred = argmax(out);
     gold = argmax(fc.test_y[i]);
+    free(out);
 
     if (pred == gold) {
       correct = correct + 1;
@@ -168,9 +195,11 @@ struct backprop_deltas {
   printf("test set accuracy: %d/%d = %f\n", correct, len(fc.test_x), float_of_int(correct) / float_of_int(len(fc.test_x)));
 }
 
-[struct fc_model fc] backprop(fmatrix x, fmatrix y, struct backprop_deltas bpds) void {
+[struct fc_model fc] backprop(
+  fmatrix x, fmatrix y, struct backprop_deltas bpds, bool should_free
+) void {
   int: i, num_param_layers;
-  fmatrix: activation, z, z_prime, delta, actv_transpose;
+  fmatrix: activation, z, z_prime, delta, actv_transpose, tmp1, tmp2, tmp3, tmp4;
   fmatrix[]: activations, zs;
   fp (float, float) activate_prime;
   fp (fmatrix, fmatrix, fmatrix) cost_prime;
@@ -180,45 +209,60 @@ struct backprop_deltas {
   activate_prime = fc.activate_prime;
   cost_prime = fc.cost_prime;
 
-  activation = x;
   activations = make(fmatrix, len(fc.layer_sizes));
-  activations[0] = x;
+  activations[0] = copy(x);
   zs = make(fmatrix, num_param_layers);
 
-  /* zero out deltas */
+  // free from last run
   for (i = 0; i < len(fc.weights); i = i + 1) {
-    bpds.weight_deltas[i] = init_fmat_zero(
-      rows(fc.weights[i]), cols(fc.weights[i])
-    );
-    bpds.bias_deltas[i] = init_fmat_zero(
-      rows(fc.biases[i]), cols(fc.biases[i])
-    );
+    if (should_free) {
+      free(bpds.weight_deltas[i]);
+      free(bpds.bias_deltas[i]);
+    }
   }
 
   // forward pass
   for (i = 0; i < len(fc.weights); i = i + 1) {
-    z = (fc.weights[i] .. activation) + fc.biases[i];
+    // tmp1 = (fc.weights[i] .. activation);
+    tmp1 = (fc.weights[i] .. activations[i]);
+    z = tmp1 + fc.biases[i];
+    free(tmp1);
     zs[i] = z;
-    activation = f_fmat(z, fc.activate);
-    activations[i+1] = activation;
+    activations[i+1] = f_fmat(z, fc.activate);
   }
 
   // TODO: cannot distinguish calling fp from method dispatch.
   // backward pass
-  delta = cost_prime(activations[len(activations) - 1], y)
-          * f_fmat(zs[len(zs)-1], activate_prime);
+  tmp1 = cost_prime(activations[len(activations) - 1], y);
+  tmp2 = f_fmat(zs[len(zs)-1], activate_prime);
+  delta = tmp1 * tmp2;
+  free(tmp1);
+  free(tmp2);
+
+  // free(activations[len(activations) - 1]);
   bpds.bias_deltas[num_param_layers - 1] = delta;
-  bpds.weight_deltas[num_param_layers - 1] =
-    delta .. ((activations[len(activations) - 2])^);
+  tmp1 = ((activations[len(activations) - 2])^);
+  bpds.weight_deltas[num_param_layers - 1] = delta .. tmp1;
+  free(tmp1);
+
 
   for (i = 2; i < len(fc.layer_sizes); i = i + 1) {
     z = zs[len(zs)-i];
     z_prime = f_fmat(z, activate_prime);
-    delta = (((fc.weights[num_param_layers - i + 1])^) .. delta) * z_prime;
-    bpds.bias_deltas[num_param_layers - i] = delta;
-    // actv_transpose = ;
-    bpds.weight_deltas[num_param_layers - i] = delta .. (activations[len(activations) - i - 1]^);
+    tmp1 = (fc.weights[num_param_layers - i + 1])^;
+    tmp2 = tmp1 .. bpds.bias_deltas[num_param_layers - i + 1];
+    bpds.bias_deltas[num_param_layers - i] = tmp2 * z_prime;
+    free(z_prime); free(tmp1); free(tmp2);
+    // ------------The Leak----------
+    tmp1 = (activations[len(activations) - i - 1]^);
+    bpds.weight_deltas[num_param_layers - i] =
+      bpds.bias_deltas[num_param_layers - i] .. tmp1;
+    free(tmp1);
+    // ------------------------------
   }
+
+  free_fmat_arr(activations);
+  free_fmat_arr(zs);
 
   return;
 }

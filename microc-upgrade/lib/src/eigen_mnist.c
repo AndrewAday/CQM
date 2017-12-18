@@ -100,6 +100,9 @@ int load_mnist_data(
   memcpy(dst_fm_images, src_fm_images, sizeof(matrix_t) * image_cnt);
   memcpy(dst_fm_labels, src_fm_labels, sizeof(matrix_t) * label_cnt);
 
+	free(src_fm_images);
+	free(src_fm_labels);
+
   cleanup:
   if (ifp) fclose(ifp);
   if (lfp) fclose(lfp);

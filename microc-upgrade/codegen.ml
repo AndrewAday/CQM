@@ -670,7 +670,10 @@ let translate program =
           builder
       | A.Call("free", [e]) ->
         let ptr = expr builder e in
-        L.build_free ptr builder
+        let lltype = L.type_of ptr in
+        if lltype = fmatrix_t
+        then build_external  "del_mat" [|ptr|] builder
+        else L.build_free ptr builder
         (* let lltype = L.type_of ptr in
         L.build_store (L.const_null lltype) ptr builder *)
       | A.Call("free_arr", [e]) ->
