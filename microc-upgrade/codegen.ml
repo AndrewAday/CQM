@@ -612,6 +612,7 @@ let translate program =
          (
            if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
            else if l_typs = (float_t, float_t) then (float_ops op e1' e2' "tmp" builder)
+           else if l_typs = (i32_t, i32_t) && op = A.Mod then (build_external "modulo" [|e1'; e2'|] builder)
            else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
            else if l_typs = (i1_t, i1_t) then (bool_ops op e1' e2' "tmp" builder)
            else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then

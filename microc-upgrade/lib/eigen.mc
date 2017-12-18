@@ -60,35 +60,6 @@ fmatrix f_fmat(fmatrix fm, fp (float, float) f) {
   return fm1;
 }
 
-int argmax(fmatrix fm) {
-  int r;
-  int m;
-  m = 0;
-  for (r = 0; r < rows(fm); r = r + 1) {
-    if (fm[r,0] > fm[m,0]) {
-      m = r;
-    }
-  }
-  return m;
-}
-
-float l2_norm(fmatrix fm) {
-  int r;
-  float acc;
-  for (r = 0; r < rows(fm); r = r + 1) {
-    acc = acc + square(fm[r,0]);
-  }
-  return sqrt(acc);
-}
-
-float quadratic_cost(fmatrix x, fmatrix y) {
-  return square(l2_norm(x - y)) * .5;
-}
-
-fmatrix quadratic_cost_prime(fmatrix x, fmatrix y) {
-  return (x - y);
-}
-
 void free_fmat_arr(fmatrix[] arr) {
   int i;
   for (i = 0; i < len(arr); i = i + 1) {

@@ -14,6 +14,7 @@ extern float exp(float x);
 extern float log(float x);  // this is natural log
 extern float log10(float x); // base 10 log
 extern float pow(float x, float y);
+extern int modulo(int x, int y);
 
 extern int rand();
 extern void srand(int seed);
@@ -60,14 +61,6 @@ float rand_norm(float mu, float sigma) {
   X2 = U2 * mult;
 
   return (mu + sigma * X1);
-}
-
-float sigmoid(float z) {
-    return 1.0 / (1.0 + exp(-z));
-}
-
-float sigmoid_prime(float z) {
-  return sigmoid(z) * (1. - sigmoid(z));
 }
 
 void shuffle(int[] arr) {
