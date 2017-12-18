@@ -140,6 +140,8 @@ let check program =
         let s_decl = get_struct_decl s_name in
         let real_method = methodify mthd_name s_decl.name in
         expr (Call(real_method, (Id(s_name)) :: el))
+        (* TEMP: TODO: Add checking *)
+      | MatLit _ -> PrimitiveType(Fmatrix)
       | MatIndex(mat, e2, e3) as ex ->
         let fm = (type_of_identifier mat)
         and i = expr e2

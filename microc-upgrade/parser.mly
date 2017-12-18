@@ -231,6 +231,10 @@ actuals_list:
     expr                    { [$1] }
   | actuals_list COMMA expr { $3 :: $1 }
 
- rows:
+/* rows:
+    actuals_opt             { [$1] }
+  | rows SEMI actuals_opt   {$3 :: $1} */
+
+rows:
     LBRACK actuals_opt RBRACK              { [$2] }
   | rows COMMA LBRACK actuals_opt RBRACK   { $4 :: $1 }

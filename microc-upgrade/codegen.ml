@@ -442,6 +442,7 @@ let translate program =
       ret_ptr
     in
 
+
     (* ==================================================================== *)
 
     (* Construct code for an expression; return its value *)
@@ -450,11 +451,6 @@ let translate program =
       | A.FloatLit f          -> L.const_float float_t f
       | A.StringLit s         -> L.build_global_stringptr (Scanf.unescaped s) "str" builder
       | A.BoolLit b           -> L.const_int i1_t (if b then 1 else 0)
-      (* | A.MatLit a            -> let ravel a = Array.of_list (List.map (expr builder) a) in
-                                 let m = Array.concat (List.map ravel a)
-                                  and r = L.const_int i32_t (List.length a)
-                                  and c = L.const_int i32_t (List.length (List.hd a)) in
-                               (L.build_call init_fmat_literal_func [|r; m; c;|] "m_lit" builder) *)
       | A.Noexpr              -> L.const_int i32_t 0
       | A.Null                -> L.const_pointer_null void_t
       | A.Id s                ->
@@ -569,40 +565,46 @@ let translate program =
           ignore (L.build_store assign_val arr_gep builder)
         ) expr_list;
         arr_ptr
-     | A.StructArrayAccess(s_name, member, e) ->
-       let struct_member = expr builder (A.StructAccess(s_name, member))
-       and idx = expr builder e
-       and llname = s_name ^ "." ^ member ^ "[]"
-       and struct_decl = get_struct_decl s_name in
-       let arr_gep = L.build_in_bounds_gep struct_member [|idx|] llname builder in
-       let arr_typ = U.get_struct_member_type struct_decl member "not found" in
-       let arr_inner_typ = U.get_array_type arr_typ in
-       (* If it's a pointer type, i.e. struct/array don't load *)
-       if U.match_struct arr_inner_typ || U.match_array arr_inner_typ then arr_gep
-       else L.build_load arr_gep (llname ^ "_load") builder
-     | A.StructArrayAssign(s_name, member, e1, e2) ->
-       let struct_member = expr builder (A.StructAccess(s_name, member))
-       and idx = expr builder e1
-       and assign_val = expr builder e2
-       and llname = s_name ^ "." ^ member ^ "[]"
-       (* and struct_decl = get_struct_decl s_name  *)
-       in
-       let arr_gep = L.build_in_bounds_gep struct_member [|idx|] llname builder in
-       (
-         match get_struct_pointer_lltype assign_val with
-           Some struct_ptr ->
-            let elem_type = L.element_type struct_ptr in
-            let elem_sz = L.size_of elem_type in
-            let restore_ptr =
-            (
-              match (U.try_get_id_str e2) with
-                Some s -> Some (lookup_llval s)
-                (*TODO: match case for struct literals *)
-              | None -> None
-            ) in
-            arr_copy_and_free arr_gep assign_val elem_sz restore_ptr builder
-         | None -> L.build_store assign_val arr_gep builder
-      )
+    | A.MatLit m ->
+        let r = expr builder (A.IntLit(List.length m))
+        and c = expr builder (A.IntLit(List.length (List.hd m)))
+        and a = expr builder (A.ArrayLit(A.ArrayType(A.PrimitiveType(A.Float)), List.concat m)) in
+        (L.build_call init_fmat_literal_func [|a; r; c;|] "m_lit" builder)
+    | A.StructArrayAccess(s_name, member, e) ->
+           let struct_member = expr builder (A.StructAccess(s_name, member))
+           and idx = expr builder e
+           and llname = s_name ^ "." ^ member ^ "[]"
+           and struct_decl = get_struct_decl s_name in
+           let arr_gep = L.build_in_bounds_gep struct_member [|idx|] llname builder in
+           let arr_typ = U.get_struct_member_type struct_decl member "not found" in
+           let arr_inner_typ = U.get_array_type arr_typ in
+           (* If it's a pointer type, i.e. struct/array don't load *)
+           if U.match_struct arr_inner_typ || U.match_array arr_inner_typ then arr_gep
+           else L.build_load arr_gep (llname ^ "_load") builder
+         | A.StructArrayAssign(s_name, member, e1, e2) ->
+           let struct_member = expr builder (A.StructAccess(s_name, member))
+           and idx = expr builder e1
+           and assign_val = expr builder e2
+           and llname = s_name ^ "." ^ member ^ "[]"
+           (* and struct_decl = get_struct_decl s_name  *)
+           in
+           let arr_gep = L.build_in_bounds_gep struct_member [|idx|] llname builder in
+           (
+             match get_struct_pointer_lltype assign_val with
+               Some struct_ptr ->
+                let elem_type = L.element_type struct_ptr in
+                let elem_sz = L.size_of elem_type in
+                let restore_ptr =
+                (
+                  match (U.try_get_id_str e2) with
+                    Some s -> Some (lookup_llval s)
+                    (*TODO: match case for struct literals *)
+                  | None -> None
+                ) in
+                arr_copy_and_free arr_gep assign_val elem_sz restore_ptr builder
+             | None -> L.build_store assign_val arr_gep builder
+          )
+
      | A.Binop (e1, op, e2)  ->
          let e1' = expr builder e1 and e2' = expr builder e2 in
          let l_typ1 = L.type_of e1' and l_typ2 = L.type_of e2' in
@@ -655,10 +657,6 @@ let translate program =
           L.build_sitofp (expr builder e) float_t "float_of_int" builder
       | A.Call("int_of_float", [e]) ->
           L.build_fptosi (expr builder e) i32_t "int_of_float" builder
-      | A.Call("is_null", [e]) ->
-          let null = L.build_is_null (expr builder e) "null" builder in
-          L.build_select null (L.const_int i1_t 1) (L.const_int i1_t 0)
-            "test_null" builder
       | A.Call("len", [e]) ->
         let arr_ptr = expr builder e in
         let is_null = L.build_is_null arr_ptr "null" builder in
@@ -674,8 +672,6 @@ let translate program =
         if lltype = fmatrix_t
         then build_external  "del_mat" [|ptr|] builder
         else L.build_free ptr builder
-        (* let lltype = L.type_of ptr in
-        L.build_store (L.const_null lltype) ptr builder *)
       | A.Call("free_arr", [e]) ->
       (* we have to make a separate free for arrays to know to move ptr back
       8 bytes so we can free metadata *)
