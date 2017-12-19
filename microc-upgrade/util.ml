@@ -61,8 +61,10 @@ let rec string_of_expr = function
   | Matassign(v, e1, e2, x) -> string_of_expr v ^ "[" ^ string_of_expr e1 ^
       ", " ^ string_of_expr e2 ^ "] = " ^ string_of_expr x
   | TupLit(el) -> "[" ^ String.concat ", " (List.map string_of_expr el) ^ "]"*)
-  | MatLit(el) -> "[" ^ String.concat ", " (List.map (fun e ->
-      String.concat ", " (List.map string_of_expr e)) el) ^ ";]"
+  | MatLit(e1) -> "[" ^ String.concat ", " (List.map (fun e ->
+       ("[" ^ String.concat ", " (List.map string_of_expr e) ^ "]")) e1) ^"]"
+  (* | MatLit(el) -> "[" ^ String.concat ", " (List.map (fun e -> *)
+      (* "[" ^ (String.concat ", " (List.map string_of_expr e)) ^ "]" el)  ) ^ "]" *)
   | Call(f, el) ->
       f ^ "(" ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> ""
@@ -83,7 +85,7 @@ let rec string_of_expr = function
     ^ " = " ^ string_of_expr e4
   | StructArrayAccess(strct, member, idx) -> strct ^ "." ^ member ^ "[" ^ string_of_expr idx ^ "]"
   | StructArrayAssign(strct, member, idx, e) ->
-    strct ^ "." ^ member ^ "[" ^ string_of_expr idx ^ "] = " ^ string_of_expr e 
+    strct ^ "." ^ member ^ "[" ^ string_of_expr idx ^ "] = " ^ string_of_expr e
 
   (* | StructLit(typ, bind_list) -> ignore(bind_list); string_of_typ typ (* TODO: make this real lol *) *)
 let rec string_of_stmt = function

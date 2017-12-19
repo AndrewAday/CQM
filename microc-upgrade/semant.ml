@@ -141,7 +141,11 @@ let check program =
         let real_method = methodify mthd_name s_decl.name in
         expr (Call(real_method, (Id(s_name)) :: el))
         (* TEMP: TODO: Add checking *)
-      | MatLit _ -> PrimitiveType(Fmatrix)
+      | MatLit (m) as ex ->
+        let c = List.length (List.hd m) in
+        let check l = if List.length l != c then raise (Failure ("Matrix literal cannot be jagged in " ^ string_of_expr ex)) in
+        List.iter check m;
+        PrimitiveType(Fmatrix)
       | MatIndex(mat, e2, e3) as ex ->
         let fm = (type_of_identifier mat)
         and i = expr e2
