@@ -216,6 +216,7 @@ let check program =
                      match op with
                         Add | Sub | Mult | Div when (t1 = t2) &&
                           (t1 = Int || t1 = Float || t1 = String || t1 = Imatrix || t1 = Fmatrix) -> t1
+                      | Mod when (t1 = t2) && (t1 = Int) -> t1
                       | Dot when (t1 = t2) && (t1 = Imatrix || t2 = Fmatrix) -> t1
                       (* Is it possible here to cast int scalar types into double to prevent
                       a compiler error later on? *)

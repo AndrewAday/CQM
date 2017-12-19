@@ -19,6 +19,14 @@ static unsigned int mnist_bin_to_int(char *v)
 	return ret;
 }
 
+int modulo(int x, int y) {
+	return x % y;
+}
+
+void flush() {
+	fflush(stdout);
+}
+
 int load_mnist_data(
   matrix_t *dst_fm_images,
   matrix_t *dst_fm_labels,
@@ -79,9 +87,6 @@ int load_mnist_data(
   src_fm_labels = (matrix_t *)malloc(sizeof(matrix_t) * label_cnt);
 
   for (i = 0; i < image_cnt; ++i) {
-    if (i % 1000 == 0)
-      printf("reading image %d/%d\n", i, image_cnt);
-
     int j;
     unsigned char read_data[28 * 28];
 
@@ -99,6 +104,12 @@ int load_mnist_data(
 
   memcpy(dst_fm_images, src_fm_images, sizeof(matrix_t) * image_cnt);
   memcpy(dst_fm_labels, src_fm_labels, sizeof(matrix_t) * label_cnt);
+
+	free(src_fm_images);
+	free(src_fm_labels);
+
+	printf("Successfully read image file: %s\n", image_filename);
+	printf("Successfully read label file: %s\n", label_filename);
 
   cleanup:
   if (ifp) fclose(ifp);

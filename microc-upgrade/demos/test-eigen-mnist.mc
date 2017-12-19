@@ -1,10 +1,3 @@
-extern int load_mnist_data(
-  fmatrix[] dst_fm_images,
-  fmatrix[] dst_fm_labels,
-  string image_filename,
-  string label_filename
-);
-
 int main()
 {
   int ret;

@@ -569,7 +569,7 @@ let translate program =
         let r = expr builder (A.IntLit(List.length m))
         and c = expr builder (A.IntLit(List.length (List.hd m)))
         and a = expr builder (A.ArrayLit(A.ArrayType(A.PrimitiveType(A.Float)), List.concat m)) in
-        (L.build_call init_fmat_literal_func [|a; r; c;|] "m_lit" builder) 
+        (L.build_call init_fmat_literal_func [|a; r; c;|] "m_lit" builder)
     | A.StructArrayAccess(s_name, member, e) ->
            let struct_member = expr builder (A.StructAccess(s_name, member))
            and idx = expr builder e
@@ -612,6 +612,7 @@ let translate program =
          (
            if      l_typs = (fmatrix_t, fmatrix_t) then (build_external (matrix_matrix_ops op) [| e1'; e2'|] builder)
            else if l_typs = (float_t, float_t) then (float_ops op e1' e2' "tmp" builder)
+           else if l_typs = (i32_t, i32_t) && op = A.Mod then (build_external "modulo" [|e1'; e2'|] builder)
            else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
            else if l_typs = (i1_t, i1_t) then (bool_ops op e1' e2' "tmp" builder)
            else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
@@ -668,7 +669,10 @@ let translate program =
           builder
       | A.Call("free", [e]) ->
         let ptr = expr builder e in
-        L.build_free ptr builder
+        let lltype = L.type_of ptr in
+        if lltype = fmatrix_t
+        then build_external  "del_mat" [|ptr|] builder
+        else L.build_free ptr builder
       | A.Call("free_arr", [e]) ->
       (* we have to make a separate free for arrays to know to move ptr back
       8 bytes so we can free metadata *)

@@ -50,39 +50,20 @@ fmatrix populate_fmat(fmatrix fm, fp (float) f) {
 /* apply f to every element of fm */
 fmatrix f_fmat(fmatrix fm, fp (float, float) f) {
   int: i,j;
+  fmatrix fm1;
+  fm1 = copy(fm);
   for (i = 0; i < rows(fm); i = i + 1) {
     for (j = 0; j < cols(fm); j = j + 1) {
-      fm[i,j] = f(fm[i,j]);
+      fm1[i,j] = f(fm[i,j]);
     }
   }
-  return fm;
+  return fm1;
 }
 
-int argmax(fmatrix fm) {
-  int r;
-  int m;
-  m = 0;
-  for (r = 0; r < rows(fm); r = r + 1) {
-    if (fm[r,0] > fm[m,0]) {
-      m = r;
-    }
+void free_fmat_arr(fmatrix[] arr) {
+  int i;
+  for (i = 0; i < len(arr); i = i + 1) {
+    free(arr[i]);
   }
-  return m;
-}
-
-float l2_norm(fmatrix fm) {
-  int r;
-  float acc;
-  for (r = 0; r < rows(fm); r = r + 1) {
-    acc = acc + square(fm[r,0]);
-  }
-  return sqrt(acc);
-}
-
-float quadratic_cost(fmatrix x, fmatrix y) {
-  return square(l2_norm(x - y)) * .5;
-}
-
-fmatrix quadratic_cost_prime(fmatrix x, fmatrix y) {
-  return (x - y);
+  free_arr(arr);
 }
