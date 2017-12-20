@@ -11,9 +11,9 @@ int main()
 
   /* define hyperparameters */
   epochs = 20;
-  learning_rate = 3.0;
-  mini_batch_size = 10;
-  layer_sizes = (int[]) {784, 30, 10};
+  learning_rate = 1.;
+  mini_batch_size = 20;
+  layer_sizes = (int[]) {784, 50, 10};
 
   /* allocate memory */
   fc = make(struct fc_model);
@@ -48,6 +48,10 @@ int main()
   fc.weight_init = norm_init;
   fc.activate = sigmoid;
   fc.activate_prime = sigmoid_prime;
+  // fc.activate = tanh;
+  // fc.activate_prime = tanh_prime;
+  // fc.activate = relu;
+  // fc.activate_prime = relu_prime;
   fc.cost = quadratic_cost;
   fc.cost_prime = quadratic_cost_prime;
 

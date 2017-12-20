@@ -56,11 +56,22 @@ struct backprop_deltas {
 
 /* construct weight matrices and initialize with random values */
 [struct fc_model fc] init_weights() void {
-  int i;
+  int: i, input_nodes, r, c;
+  fmatrix fm;
+  float stdv;
   fc.weights = make(fmatrix, len(fc.layer_sizes) - 1);
   for (i = 1; i < len(fc.layer_sizes); i = i + 1) {
     fc.weights[i-1] = init_fmat_zero(fc.layer_sizes[i], fc.layer_sizes[i-1]);
     fc.weights[i-1] = populate_fmat(fc.weights[i-1], fc.weight_init);
+    input_nodes = fc.layer_sizes[i-1];
+    stdv = sqrt(float_of_int(input_nodes));
+    fm = fc.weights[i-1];
+    /* normalize weights wrt input edges */
+    for (r = 0; r < rows(fm); r = r + 1) {
+      for (c = 0; c < cols(fm); c = c + 1) {
+        fm[r,c] = fm[r,c] / stdv;
+      }
+    }
   }
   return;
 }
@@ -71,7 +82,7 @@ struct backprop_deltas {
   for (i = 0; i < len(fc.weights); i = i + 1) {
     tmp1 = fc.weights[i] .. X;
     tmp2 = tmp1 + fc.biases[i];
-    X = tmp2 => f_fmat(fc.activate);
+    X = tmp2 => map(fc.activate);
     free(tmp1); free(tmp2);
   }
   return X;
@@ -219,13 +230,13 @@ struct backprop_deltas {
     z = tmp1 + fc.biases[i];
     free(tmp1);
     zs[i] = z;
-    activations[i+1] = f_fmat(z, fc.activate);
+    activations[i+1] = map(z, fc.activate);
   }
 
   // TODO: cannot distinguish calling fp from method dispatch.
   // backward pass
   tmp1 = cost_prime(activations[len(activations) - 1], y);
-  tmp2 = f_fmat(zs[len(zs)-1], activate_prime);
+  tmp2 = map(zs[len(zs)-1], activate_prime);
   delta = tmp1 * tmp2;
   free(tmp1);
   free(tmp2);
@@ -239,7 +250,7 @@ struct backprop_deltas {
 
   for (i = 2; i < len(fc.layer_sizes); i = i + 1) {
     z = zs[len(zs)-i];
-    z_prime = f_fmat(z, activate_prime);
+    z_prime = map(z, activate_prime);
     tmp1 = (fc.weights[num_param_layers - i + 1])^;
     tmp2 = tmp1 .. bpds.bias_deltas[num_param_layers - i + 1];
     bpds.bias_deltas[num_param_layers - i] = tmp2 * z_prime;
@@ -404,4 +415,24 @@ float sigmoid_prime(float z) {
 
 float norm_init() {
   return rand_norm(0., 1.);
+}
+
+/* for relu */
+float const_init() {
+  return .2;
+}
+
+float tanh_prime(float z) {
+  return (1. - square(tanh(z)));
+}
+
+float relu(float z) {
+  return max(0., z);
+}
+
+float relu_prime(float z) {
+  if (z >= 0.) {
+    return 1.;
+  }
+  return 0.;
 }
