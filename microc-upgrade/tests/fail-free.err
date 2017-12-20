@@ -1,1 +1,0 @@
-Fatal error: exception Failure("Illegal argument of type int to free, must be struct or matrix")
