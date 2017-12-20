@@ -1,7 +1,7 @@
 LLI="lli"
 LLC="llc"
 CC="cc"
-MICROC="../microc.native"
+CQM="../cqm.native"
 
 Run() {
     echo $* 1>&2
@@ -13,9 +13,9 @@ Run() {
 
 Compile() {
   basename=`echo $1 | sed 's/.*\\///
-                           s/.mc//'`
+                           s/.cqm//'`
   echo ${basename}
-  Run "cat" "../lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
+  Run "cat" "../lib/*.cqm" "$1" "|" "$CQM" ">" "${basename}.ll" &&
   Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
   Run "$CC" "-O3" "-o" "${basename}" "${basename}.s" "eigen_mnist.o" "-L." "-leigentest" "-lm"
 }

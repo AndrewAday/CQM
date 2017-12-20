@@ -110,6 +110,7 @@ int load_mnist_data(
 
 	printf("Successfully read image file: %s\n", image_filename);
 	printf("Successfully read label file: %s\n", label_filename);
+	flush();
 
   cleanup:
   if (ifp) fclose(ifp);

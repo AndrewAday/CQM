@@ -1,6 +1,6 @@
 #!/bin/sh
 
-# Regression testing script for MicroC
+# Regression testing script for cqm
 # Step through a list of files
 #  Compile, run, and check the output of each expected-to-work test
 #  Compile and check the error of each expected-to-fail test
@@ -15,10 +15,10 @@ LLC="llc"
 # Path to the C compiler
 CC="cc"
 
-# Path to the microc compiler.  Usually "./microc.native"
-# Try "_build/microc.native" if ocamlbuild was unable to create a symbolic link.
-MICROC="./microc.native"
-#MICROC="_build/microc.native"
+# Path to the cqm compiler.  Usually "./cqm.native"
+# Try "_build/cqm.native" if ocamlbuild was unable to create a symbolic link.
+CQM="./cqm.native"
+#cqm="_build/cqm.native"
 
 
 # Set time limit for all operations
@@ -32,7 +32,7 @@ globalerror=0
 keep=0
 
 Usage() {
-    echo "Usage: testall.sh [options] [.mc files]"
+    echo "Usage: testall.sh [options] [.cqm files]"
     echo "-k    Keep intermediate files"
     echo "-h    Print this help"
     exit 1
@@ -81,8 +81,8 @@ RunFail() {
 Check() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
-                             s/.mc//'`
-    reffile=`echo $1 | sed 's/.mc$//'`
+                             s/.cqm//'`
+    reffile=`echo $1 | sed 's/.cqm$//'`
     basedir="`echo $1 | sed 's/\/[^\/]*$//'`/."
 
     echo -n "$basename..."
@@ -93,7 +93,7 @@ Check() {
     generatedfiles=""
 
     generatedfiles="$generatedfiles ${basename}.ll ${basename}.s ${basename}.exe ${basename}.out" &&
-    Run "cat" "lib/*.mc" "$1" "|" "$MICROC" ">" "${basename}.ll" &&
+    Run "cat" "lib/*.cqm" "$1" "|" "$CQM" ">" "${basename}.ll" &&
     Run "$LLC" "${basename}.ll" ">" "${basename}.s" &&
     Run "$CC" "-O3" "-o" "${basename}.exe" "${basename}.s" "printbig.o" "eigen_mnist.o" "-L lib/src" "-leigentest" "-lm" &&
     Run "./${basename}.exe" > "${basename}.out" &&
@@ -116,8 +116,8 @@ Check() {
 CheckFail() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
-                             s/.mc//'`
-    reffile=`echo $1 | sed 's/.mc$//'`
+                             s/.cqm//'`
+    reffile=`echo $1 | sed 's/.cqm$//'`
     basedir="`echo $1 | sed 's/\/[^\/]*$//'`/."
 
     echo -n "$basename..."
@@ -128,7 +128,7 @@ CheckFail() {
     generatedfiles=""
 
     generatedfiles="$generatedfiles ${basename}.err ${basename}.diff" &&
-    RunFail "cat" "lib/*.mc" "$1" "|" "$MICROC" "2>" "${basename}.err" ">>" $globallog &&
+    RunFail "cat" "lib/*.cqm" "$1" "|" "$CQM" "2>" "${basename}.err" ">>" $globallog &&
     Compare ${basename}.err ${reffile}.err ${basename}.diff
 
     # Report the status and clean up the generated files
@@ -184,7 +184,7 @@ if [ $# -ge 1 ]
 then
     files=$@
 else
-    files="tests/test-*.mc tests/fail-*.mc"
+    files="tests/test-*.cqm tests/fail-*.cqm"
 fi
 
 for file in $files
