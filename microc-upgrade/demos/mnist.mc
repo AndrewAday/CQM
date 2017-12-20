@@ -11,8 +11,8 @@ int main()
 
   /* define hyperparameters */
   epochs = 20;
-  learning_rate = 1.;
-  mini_batch_size = 20;
+  learning_rate = .1;
+  mini_batch_size = 10;
   layer_sizes = (int[]) {784, 50, 10};
 
   /* allocate memory */
@@ -52,8 +52,10 @@ int main()
   // fc.activate_prime = tanh_prime;
   // fc.activate = relu;
   // fc.activate_prime = relu_prime;
-  fc.cost = quadratic_cost;
-  fc.cost_prime = quadratic_cost_prime;
+  // fc.cost = quadratic_cost;
+  // fc.cost_prime = quadratic_cost_prime;
+  fc.cost = cross_entropy_cost;
+  fc.cost_prime = cross_entropy_cost_prime;
 
   fc.train();
   fc.demo(5);

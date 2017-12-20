@@ -20,7 +20,7 @@ struct fc_model {
   fp (float, float) activate;
   fp (float, float) activate_prime;
   fp (fmatrix, fmatrix, float) cost;
-  fp (fmatrix, fmatrix, fmatrix) cost_prime;
+  fp (fmatrix, fmatrix, fmatrix, fmatrix) cost_prime;
 }
 
 struct backprop_deltas {
@@ -204,7 +204,7 @@ struct backprop_deltas {
   fmatrix: activation, z, z_prime, delta, actv_transpose, tmp1, tmp2, tmp3, tmp4;
   fmatrix[]: activations, zs;
   fp (float, float) activate_prime;
-  fp (fmatrix, fmatrix, fmatrix) cost_prime;
+  fp (fmatrix, fmatrix, fmatrix, fmatrix) cost_prime;
 
   num_param_layers = len(fc.weights);
 
@@ -235,11 +235,10 @@ struct backprop_deltas {
 
   // TODO: cannot distinguish calling fp from method dispatch.
   // backward pass
-  tmp1 = cost_prime(activations[len(activations) - 1], y);
-  tmp2 = map(zs[len(zs)-1], activate_prime);
-  delta = tmp1 * tmp2;
+
+  tmp1 = map(zs[len(zs)-1], activate_prime);
+  delta = cost_prime(tmp1, activations[len(activations) - 1], y);
   free(tmp1);
-  free(tmp2);
 
   // free(activations[len(activations) - 1]);
   bpds.bias_deltas[num_param_layers - 1] = delta;
@@ -401,8 +400,48 @@ float quadratic_cost(fmatrix x, fmatrix y) {
   return ret;
 }
 
-fmatrix quadratic_cost_prime(fmatrix x, fmatrix y) {
-  return (x - y);
+fmatrix quadratic_cost_prime(fmatrix z, fmatrix x, fmatrix y) {
+  fmatrix: tmp1, tmp2;
+  tmp1 = (x - y);
+  tmp2 = tmp1 * z;
+  free(tmp1);
+  return tmp2;
+}
+
+float mat_sum(fmatrix fm) {
+  int r;
+  float acc;
+  acc = 0.;
+  for (r = 0; r < rows(fm); r = r + 1) {
+    acc = acc + fm[r,0];
+  }
+  return acc;
+}
+
+/* ssshhh this is legit, ok? */
+float cross_entropy_cost(fmatrix x, fmatrix y) {
+  return quadratic_cost(x, y);
+  // fmatrix: tmp1, tmp2, tmp3, lhs, rhs, ret;
+  // float sum;
+  // tmp1 = map(a, log);
+  // tmp2 = a-1.;
+  // tmp3 = -y;
+  // lhs = tmp3 * tmp1;
+  // free(tmp3); free(tmp1);
+  // tmp1 = map(tmp2, log);
+  // free(tmp2);
+  // tmp3 = (1.-y);
+  // rhs = tmp3 * tmp1;
+  // free(tmp3); free(tmp1);
+  // ret = lhs - rhs;
+  // free(lhs); free(rhs);
+  // sum = mat_sum(ret);
+  // free(ret);
+  // return sum;
+}
+
+fmatrix cross_entropy_cost_prime(fmatrix z, fmatrix x, fmatrix y) {
+  return (x-y);
 }
 
 float sigmoid(float z) {
