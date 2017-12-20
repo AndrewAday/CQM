@@ -8,6 +8,7 @@ int main(){
 
 	matrix_t tmp4 = mm_add(tmp2, tmp3);
 	matrix_t tmp5 = dot(tmp2, tmp3);
+	matrix_t tmp6 = sm_div(tmp, 2, 0);
 
 	printf("%f\n", mat_index(tmp3, 1,1));
 	printf("%f\n", mat_index(tmp2, 1,1));

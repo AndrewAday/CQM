@@ -21,12 +21,11 @@ extern fmatrix mm_mult(fmatrix fm1, fmatrix fm2);
 extern fmatrix mm_div(fmatrix fm1, fmatrix fm2);
 extern fmatrix dot(fmatrix fm1, fmatrix fm2);
 
-extern fmatrix sm_add(fmatrix fm, float s);
+extern fmatrix sm_add(fmatrix fm, float s, int rev);
 extern fmatrix sm_sub(fmatrix fm, float s, int rev);
-extern fmatrix sm_mult(fmatrix fm, float s);
-
-// extern fmatrix sm_div(fmatrix fm, float s, int rev);
-extern fmatrix sm_div(fmatrix fm, float s);
+extern fmatrix sm_mult(fmatrix fm, float s, int rev);
+extern fmatrix sm_div(fmatrix fm, float s, int rev);
+// extern fmatrix sm_div(fmatrix fm, float s);
 
 extern fmatrix smeq(fmatrix fm, float s);
 

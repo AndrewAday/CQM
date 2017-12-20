@@ -616,9 +616,11 @@ let translate program =
            else if l_typs = (i32_t, i32_t) then (int_ops op e1' e2' "tmp" builder)
            else if l_typs = (i1_t, i1_t) then (bool_ops op e1' e2' "tmp" builder)
            else if l_typ1 = fmatrix_t && (l_typ2 = i32_t || l_typ2 = float_t) then
-                            (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
+                            let rev = expr builder (A.IntLit(1)) in
+                            (build_external (scalar_matrix_ops op) [|e1'; e2'; rev|] builder)
            else if l_typ2 = fmatrix_t && (l_typ1 = i32_t || l_typ1 = float_t) then
-                            (build_external (scalar_matrix_ops op) [|e1'; e2'|] builder)
+                            let rev = expr builder (A.IntLit(0)) in
+                            (build_external (scalar_matrix_ops op) [|e2'; e1'; rev|] builder)
            else raise (Failure ((U.string_of_op op) ^ " not defined for " ^
                                   (L.string_of_lltype l_typ1) ^ " and " ^
                                   (L.string_of_lltype l_typ2) ^ " in " ^

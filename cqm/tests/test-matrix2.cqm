@@ -16,6 +16,21 @@ int main(){
 
 	print_mat((fm3 + 3.)^);
 	print_mat(fm3 + 3.);
+	print_line();
+	print_mat(3. + fm3);
+	print_line();
+	print_mat(fm3 - 1.);
+	print_line();
+	print_string("0. - fm3");
+	print_mat(0. - fm3);
+	print_line();
+	print_string("fm3 / 1.");
+	print_mat(fm3 / 1.);
+	print_line();
+	print_string("1. / fm3");
+	print_mat(1. / fm3);
+	print_line();
+	print_string("fm3 / 3.");
 	print_mat(fm3 / 3.);
 
 

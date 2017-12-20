@@ -126,7 +126,7 @@ MatrixXdr* binary_operations(matrix_t undef_mptr1, matrix_t undef_mptr2, double 
 		case 8: *tmp_mptr = *def_mptr1 * scalar; break;
 		// sclar matrix division
 		case 9: *tmp_mptr = *def_mptr1 / scalar; break;
-		case 10: *tmp_mptr = scalar  * (*def_mptr2).cwiseInverse(); break;
+		case 10: *tmp_mptr = scalar  * ((*def_mptr1).cwiseInverse()); break;
 	}
 
 	return tmp_mptr;
@@ -147,14 +147,14 @@ matrix_t mm_mult(matrix_t undef_mptr1, matrix_t undef_mptr2) { return binary_ope
 matrix_t mm_div(matrix_t undef_mptr1, matrix_t undef_mptr2)  { return binary_operations(undef_mptr1, undef_mptr2, 3); }
 matrix_t dot(matrix_t undef_mptr1, matrix_t undef_mptr2)		 { return binary_operations(undef_mptr1, undef_mptr2, 4); }
 
-matrix_t sm_add(matrix_t undef_mptr, double s)					{ return binary_operations(undef_mptr, s, 5); }
-matrix_t sm_sub(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 6) :
+matrix_t sm_add(matrix_t undef_mptr, double s, int rev)			 { return binary_operations(undef_mptr, s, 5); }
+matrix_t sm_sub(matrix_t undef_mptr, double s, int rev)		 	 { return rev ? binary_operations(undef_mptr, s, 6) :
 																	   																	 binary_operations(undef_mptr, s, 7) ; }
-matrix_t sm_mult(matrix_t undef_mptr, double s)					{ return binary_operations(undef_mptr, s, 8); }
-// matrix_t sm_div(matrix_t undef_mptr, double s, int rev)	{ return rev ? binary_operations(undef_mptr, s, 9) :
-// 																	   																	 binary_operations(undef_mptr, s, 10) ; }
+matrix_t sm_mult(matrix_t undef_mptr, double s, int rev)		 { return binary_operations(undef_mptr, s, 8); }
+matrix_t sm_div(matrix_t undef_mptr, double s, int rev)			 { return rev ? binary_operations(undef_mptr, s, 9) :
+																	   																	 binary_operations(undef_mptr, s, 10) ; }
 
-matrix_t sm_div(matrix_t undef_mptr, double s)	{ return binary_operations(undef_mptr, s, 9); }
+// matrix_t sm_div(matrix_t undef_mptr, double s)	{ return binary_operations(undef_mptr, s, 9); }
 
 
 
@@ -171,5 +171,5 @@ matrix_t transpose(matrix_t undef_mptr){
 }
 
 matrix_t negate(matrix_t undef_mptr){
-	return sm_mult(undef_mptr, -1);
+	return sm_mult(undef_mptr, -1, 0);
 }

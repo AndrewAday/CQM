@@ -39,11 +39,11 @@ matrix_t mm_div(matrix_t, matrix_t);
 matrix_t dot(matrix_t, matrix_t);
 
 // Scalar-Matrix operations
-matrix_t sm_add(matrix_t, double);
+matrix_t sm_add(matrix_t, double, int);
 matrix_t sm_sub(matrix_t, double, int);
-matrix_t sm_mult(matrix_t, double);
-// matrix_t sm_div(matrix_t, double, int);
-matrix_t sm_div(matrix_t, double);
+matrix_t sm_mult(matrix_t, double, int);
+matrix_t sm_div(matrix_t, double, int);
+// matrix_t sm_div(matrix_t, double);
 matrix_t smeq(matrix_t, double);
 
 /* =============== Matrix Unary Operations =============== */
