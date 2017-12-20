@@ -14,7 +14,7 @@ let _ =
     ("-c", Arg.Unit (set_action Compile),
       "Check and print the generated LLVM IR (default)");
   ] in
-  let usage_msg = "usage: ./microc.native [-a|-l|-c] [file.mc]" in
+  let usage_msg = "usage: ./microc.native [-a|-l|-c] [file.cqm]" in
   let channel = ref stdin in
   Arg.parse speclist (fun filename -> channel := open_in filename) usage_msg;
   let lexbuf = Lexing.from_channel !channel in
