@@ -18,8 +18,8 @@ int main()
   /* allocate memory */
   fc = make(struct fc_model);
 
-  train_fm_images = make(fmatrix, 50000);
-  train_fm_labels = make(fmatrix, 50000);
+  train_fm_images = make(fmatrix, 60000);
+  train_fm_labels = make(fmatrix, 60000);
 
   test_fm_images = make(fmatrix, 10000);
   test_fm_labels = make(fmatrix, 10000);

@@ -64,6 +64,7 @@ int load_mnist_data(
 
   fread(tmp, 1, 4, ifp);
   image_cnt = mnist_bin_to_int(tmp);
+	printf("images: %d\n", image_cnt);
 
   fread(tmp, 1, 4, lfp);
   label_cnt = mnist_bin_to_int(tmp);
