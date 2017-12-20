@@ -5,12 +5,12 @@
 # Easiest way to build: using ocamlbuild, which in turn uses ocamlfind
 
 .PHONY : all
-all : microc.native printbig.o eigenlib
+all : cqm.native printbig.o eigenlib
 
-.PHONY : microc.native
-microc.native :
+.PHONY : cqm.native
+cqm.native :
 	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis,str -cflags -w,+a-4 \
-		microc.native
+		cqm.native
 
 .PHONY : eigenlib
 eigenlib :
@@ -22,17 +22,17 @@ eigenlib :
 .PHONY : clean
 clean :
 	ocamlbuild -clean
-	rm -rf testall.log *.diff microc scanner.ml parser.ml parser.mli
+	rm -rf testall.log *.diff cqm scanner.ml parser.ml parser.mli
 	rm -rf printbig
 	rm -rf *.cmx *.cmi *.cmo *.cmx *.o *.s *.ll *.out *.exe *.so *.err
 	-cd demos && make clean
 	-cd lib/src && make clean && make cleanlib
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind to locate LLVM
-OBJS = ast.cmx codegen.cmx parser.cmx scanner.cmx semant.cmx microc.cmx util.cmx
+OBJS = ast.cmx codegen.cmx parser.cmx scanner.cmx semant.cmx cqm.cmx util.cmx
 
-microc : $(OBJS)
-	ocamlfind ocamlopt -linkpkg -package llvm -package llvm.analysis -package str $(OBJS) $(XLIBS) -o microc
+cqm : $(OBJS)
+	ocamlfind ocamlopt -linkpkg -package llvm -package llvm.analysis -package str $(OBJS) $(XLIBS) -o cqm
 
 scanner.ml : scanner.mll
 	ocamllex scanner.mll
@@ -61,8 +61,8 @@ codegen.cmo : ast.cmo util.cmo
 codegen.cmx : ast.cmx util.cmx
 util.cmo: ast.cmo
 util.cmx: ast.cmx
-microc.cmo : semant.cmo scanner.cmo parser.cmi codegen.cmo ast.cmo util.cmo
-microc.cmx : semant.cmx scanner.cmx parser.cmx codegen.cmx ast.cmx util.cmx
+cqm.cmo : semant.cmo scanner.cmo parser.cmi codegen.cmo ast.cmo util.cmo
+cqm.cmx : semant.cmx scanner.cmx parser.cmx codegen.cmx ast.cmx util.cmx
 parser.cmo : ast.cmo parser.cmi
 parser.cmx : ast.cmx parser.cmi
 scanner.cmo : parser.cmi
@@ -83,13 +83,13 @@ FAILS = assign1 assign2 assign3 dead1 dead2 expr1 expr2 for1 for2	\
     func9 global1 global2 if1 if2 if3 nomain return1 return2 while1	\
     while2
 
-TESTFILES = $(TESTS:%=test-%.mc) $(TESTS:%=test-%.out) \
-	    $(FAILS:%=fail-%.mc) $(FAILS:%=fail-%.err)
+TESTFILES = $(TESTS:%=test-%.cqm) $(TESTS:%=test-%.out) \
+	    $(FAILS:%=fail-%.cqm) $(FAILS:%=fail-%.err)
 
-TARFILES = ast.ml util.ml codegen.ml Makefile _tags microc.ml parser.mly README \
+TARFILES = ast.ml util.ml codegen.ml Makefile _tags cqm.ml parser.mly README \
         scanner.mll semant.ml testall.sh printbig.c arcade-font.pbm font2c \
 	$(TESTFILES:%=tests/%)
 
-microc-llvm.tar.gz : $(TARFILES)
-	cd .. && tar czf microc-llvm/microc-llvm.tar.gz \
-		$(TARFILES:%=microc-llvm/%)
+cqm-llvm.tar.gz : $(TARFILES)
+	cd .. && tar czf cqm-llvm/cqm-llvm.tar.gz \
+		$(TARFILES:%=cqm-llvm/%)

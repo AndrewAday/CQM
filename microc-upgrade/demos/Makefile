@@ -4,8 +4,8 @@ PRELUDE = ./prelude
 .PHONY: all
 all:
 	$(PRELUDE)
-	$(COMPILE) mnist.mc
-	$(COMPILE) test-eigen-mnist.mc
+	$(COMPILE) mnist.cqm
+	$(COMPILE) test-eigen-mnist.cqm
 
 .PHONY: clean
 clean:
