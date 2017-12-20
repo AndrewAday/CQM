@@ -1,0 +1,1 @@
+Fatal error: exception Failure("Illegal attempt to index matrix in expr fm[1.2,1.3]")

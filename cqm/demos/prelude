@@ -1,0 +1,10 @@
+if [ -f libeigentest.so ]; then
+  rm libeigentest.so
+fi
+
+if [ -f eigen_mnist.o ]; then
+  rm eigen_mnist.o
+fi
+
+ln -s ../lib/src/libeigentest.so libeigentest.so
+cp ../lib/src/eigen_mnist.o eigen_mnist.o
