@@ -30,3 +30,4 @@ setup.log
 
 # JZ settings
 .sublimelinterrc
+.DS_Store
